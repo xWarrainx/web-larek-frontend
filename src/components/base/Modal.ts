@@ -1,43 +1,44 @@
-export class Modal {
-    private modalElement: HTMLElement;
-    private contentElement: HTMLElement;
-    private closeButton: HTMLElement;
+import {Component} from "../base/Component";
+import {ensureElement} from "../../utils/utils";
+import {IEvents} from "../base/events";
 
-    constructor(modalId: string = 'modal-container') {
-        this.modalElement = document.getElementById(modalId)!;
-        this.contentElement = this.modalElement.querySelector('.modal__content')!;
-        this.closeButton = this.modalElement.querySelector('.modal__close')!;
+interface IModalData {
+    content: HTMLElement;
+}
 
-        this.closeButton.addEventListener('click', () => this.close());
-        this.modalElement.addEventListener('click', (e) => {
-            if (e.target === this.modalElement) this.close();
-        });
+export class Modal extends Component<IModalData> {
+    protected _closeButton: HTMLButtonElement;
+    protected _content: HTMLElement;
+
+    constructor(template: HTMLTemplateElement, protected events: IEvents) {
+        super(template);
+
+        this._closeButton = ensureElement<HTMLButtonElement>('.modal__close', template);
+        this._content = ensureElement<HTMLElement>('.modal__content', template);
+
+        this._closeButton.addEventListener('click', this.close.bind(this));
+        this.container.addEventListener('click', this.close.bind(this));
+        this._content.addEventListener('click', (event) => event.stopPropagation());
     }
 
-    open(content?: HTMLElement | string): void {
-        if (content) {
-            this.setContent(content);
-        }
-        this.modalElement.classList.add('modal_active');
-        document.body.style.overflow = 'hidden';
+    set content(value: HTMLElement) {
+        this._content.replaceChildren(value);
     }
 
-    close(): void {
-        this.modalElement.classList.remove('modal_active');
-        document.body.style.overflow = '';
+    open() {
+        this.container.classList.add('modal_active');
+        this.events.emit('modal:open');
     }
 
-    setContent(content: HTMLElement | string): void {
-        this.contentElement.innerHTML = '';
-
-        if (typeof content === 'string') {
-            this.contentElement.innerHTML = content;
-        } else {
-            this.contentElement.appendChild(content);
-        }
+    close() {
+        this.container.classList.remove('modal_active');
+        this.content = null;
+        this.events.emit('modal:close');
     }
 
-    isOpen(): boolean {
-        return this.modalElement.classList.contains('modal_active');
+    render(data: IModalData): HTMLElement {
+        super.render(data);
+        this.open();
+        return this.container;
     }
 }
