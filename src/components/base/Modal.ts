@@ -1,44 +1,40 @@
-import {Component} from "../base/Component";
-import {ensureElement} from "../../utils/utils";
-import {IEvents} from "../base/events";
+import { Component } from "./Component";
+import { EventEmitter } from "./events";
 
-interface IModalData {
-    content: HTMLElement;
-}
+// Форма модального окна
+export class Modal extends Component<{ content: HTMLElement }> {
+    private closeButton: HTMLButtonElement;
 
-export class Modal extends Component<IModalData> {
-    protected _closeButton: HTMLButtonElement;
-    protected _content: HTMLElement;
+    constructor(container: HTMLElement, protected events: EventEmitter) {
+        super(container);
 
-    constructor(template: HTMLTemplateElement, protected events: IEvents) {
-        super(template);
-
-        this._closeButton = ensureElement<HTMLButtonElement>('.modal__close', template);
-        this._content = ensureElement<HTMLElement>('.modal__content', template);
-
-        this._closeButton.addEventListener('click', this.close.bind(this));
-        this.container.addEventListener('click', this.close.bind(this));
-        this._content.addEventListener('click', (event) => event.stopPropagation());
+        this.closeButton = this.container.querySelector('.modal__close');
+        this.closeButton.addEventListener('click', this.close.bind(this));
+        this.container.addEventListener('click', this.handleOutsideClick.bind(this));
     }
 
-    set content(value: HTMLElement) {
-        this._content.replaceChildren(value);
-    }
-
-    open() {
-        this.container.classList.add('modal_active');
+    open(content: HTMLElement): void {
+        const contentContainer = this.container.querySelector('.modal__content');
+        contentContainer.innerHTML = '';
+        contentContainer.append(content);
+        this.toggle(true);
         this.events.emit('modal:open');
     }
 
-    close() {
-        this.container.classList.remove('modal_active');
-        this.content = null;
+    close(): void {
+        this.toggle(false);
         this.events.emit('modal:close');
     }
 
-    render(data: IModalData): HTMLElement {
-        super.render(data);
-        this.open();
-        return this.container;
+    private handleOutsideClick(e: MouseEvent): void {
+        if (e.target === this.container) this.close();
+    }
+
+    private toggle(state: boolean): void {
+        this.container.classList.toggle('modal_active', state);
+    }
+    
+    private toggleBodyScroll(state: boolean): void {
+        document.body.style.overflow = state ? 'hidden' : '';
     }
 }

@@ -2,16 +2,28 @@
 export abstract class Component<T> {
     protected container: HTMLElement;
 
-    constructor(protected template: HTMLTemplateElement) {
-        this.container = template.content.cloneNode(true) as HTMLElement;
+    constructor(container: HTMLElement) {
+        this.container = container;
     }
 
-    protected setText(selector: string, value: string) {
+    // Общие методы для всех компонентов
+    protected setText(selector: string, value: string): void {
         const element = this.container.querySelector(selector);
         if (element) element.textContent = value;
     }
 
-    protected setImage(selector: string, src: string, alt?: string) {
+    protected setClass(selector: string, className: string): void {
+        const element = this.container.querySelector(selector);
+        if (element) {
+            if (className) {
+                element.classList.add(className);
+            } else {
+                element.className = '';
+            }
+        }
+    }
+
+    protected setImage(selector: string, src: string, alt?: string): void {
         const element = this.container.querySelector(selector) as HTMLImageElement;
         if (element) {
             element.src = src;
@@ -19,13 +31,8 @@ export abstract class Component<T> {
         }
     }
 
-    protected setClass(selector: string, className: string) {
-        const element = this.container.querySelector(selector);
-        if (element) element.classList.add(className);
-    }
-
-    render(data?: Partial<T>): HTMLElement {
-        Object.assign(this as object, data ?? {});
-        return this.container;
+    protected setDisabled(selector: string, state: boolean): void {
+        const element = this.container.querySelector(selector) as HTMLButtonElement;
+        if (element) element.disabled = state;
     }
 }

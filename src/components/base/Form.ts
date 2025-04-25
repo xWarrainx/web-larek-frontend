@@ -1,6 +1,6 @@
-import { Component } from "../base/Component";
-import { IEvents } from "../base/events";
-import { ensureElement } from "../../utils/utils";
+import {Component} from "../base/Component";
+import {IEvents} from "../base/events";
+import {ensureElement} from "../../utils/utils";
 
 interface IFormState {
     valid: boolean;
@@ -12,7 +12,13 @@ export class Form<T> extends Component<IFormState> {
     protected _errors: HTMLElement;
 
     constructor(protected container: HTMLFormElement, protected events: IEvents) {
-        super(container);
+        // Создаем временный template для совместимости с Component
+        const tempTemplate = document.createElement('template');
+        tempTemplate.content.appendChild(container.cloneNode(true));
+
+        super(tempTemplate); // Теперь передаем template
+
+        this.container = container; // Сохраняем оригинальный form
 
         this._submit = ensureElement<HTMLButtonElement>('button[type=submit]', this.container);
         this._errors = ensureElement<HTMLElement>('.form__errors', this.container);
@@ -42,14 +48,23 @@ export class Form<T> extends Component<IFormState> {
     }
 
     set errors(value: string) {
-        this.setText(this._errors, value);
+        if (this._errors) {
+            this._errors.textContent = value;
+        }
     }
 
-    render(state: Partial<T> & IFormState) {
+    render(state: Partial<T> & IFormState): HTMLElement {
         const {valid, errors, ...inputs} = state;
-        super.render({valid, errors});
+
+        if (valid !== undefined) {
+            this.valid = valid;
+        }
+
+        if (errors !== undefined) {
+            this.errors = errors;
+        }
+
         Object.assign(this, inputs);
         return this.container;
-
     }
 }
