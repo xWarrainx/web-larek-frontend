@@ -31,12 +31,15 @@ export class AppData {
         return this._basket;
     }
 
+    get basketCount(): number {
+        return this._basket.length;
+    }
+
     get order() {
         return this._order;
     }
 
     addToBasket(product: IProduct) {
-        // Проверяем, нет ли уже этого товара в корзине
         if (!this._basket.some(item => item.id === product.id)) {
             this._basket.push(product);
             this.updateOrder();
@@ -64,5 +67,6 @@ export class AppData {
         this._order.items = [];
         this._order.total = 0;
         this.events.emit('basket:changed', this._basket);
+        this.events.emit('basket:cleared');
     }
 }

@@ -1,40 +1,54 @@
-import { Component } from "./Component";
 import { EventEmitter } from "./events";
 
-// Форма модального окна
-export class Modal extends Component<{ content: HTMLElement }> {
-    private closeButton: HTMLButtonElement;
+export class Modal {
+    protected _container: HTMLElement;
+    protected _content: HTMLElement;
+    protected _closeButton: HTMLButtonElement;
+    protected _events: EventEmitter;
+    private _handleEscKey: (event: KeyboardEvent) => void;
 
-    constructor(container: HTMLElement, protected events: EventEmitter) {
-        super(container);
+    constructor(container: HTMLElement, events: EventEmitter) {
+        this._container = container;
+        this._events = events;
+        this._content = this._container.querySelector('.modal__content');
+        this._closeButton = this._container.querySelector('.modal__close');
 
-        this.closeButton = this.container.querySelector('.modal__close');
-        this.closeButton.addEventListener('click', this.close.bind(this));
-        this.container.addEventListener('click', this.handleOutsideClick.bind(this));
+        // Обработчик для клавиши Esc
+        this._handleEscKey = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                this.close();
+            }
+        };
+
+        this._closeButton.addEventListener('click', this.close.bind(this));
+        this._container.addEventListener('click', (e) => {
+            if (e.target === this._container) this.close();
+        });
     }
 
-    open(content: HTMLElement): void {
-        const contentContainer = this.container.querySelector('.modal__content');
-        contentContainer.innerHTML = '';
-        contentContainer.append(content);
-        this.toggle(true);
-        this.events.emit('modal:open');
+    open(content?: HTMLElement) {
+        if (content) {
+            this._content.innerHTML = '';
+            this._content.appendChild(content);
+        }
+        this._container.classList.add('modal_active');
+        document.body.style.overflow = 'hidden';
+
+        // Добавляем обработчик при открытии
+        document.addEventListener('keydown', this._handleEscKey);
+        this._events.emit('modal:open');
     }
 
-    close(): void {
-        this.toggle(false);
-        this.events.emit('modal:close');
-    }
-
-    private handleOutsideClick(e: MouseEvent): void {
-        if (e.target === this.container) this.close();
-    }
-
-    private toggle(state: boolean): void {
-        this.container.classList.toggle('modal_active', state);
+    isOpened(): boolean {
+        return this._container.classList.contains('modal_active');
     }
     
-    private toggleBodyScroll(state: boolean): void {
-        document.body.style.overflow = state ? 'hidden' : '';
+    close() {
+        this._container.classList.remove('modal_active');
+        document.body.style.overflow = '';
+
+        // Удаляем обработчик при закрытии
+        document.removeEventListener('keydown', this._handleEscKey);
+        this._events.emit('modal:close');
     }
 }

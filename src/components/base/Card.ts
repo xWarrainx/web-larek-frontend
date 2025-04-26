@@ -4,7 +4,7 @@ import { IProduct } from "../../types";
 export class Card {
     protected _template: HTMLTemplateElement;
     protected _events: EventEmitter;
-    private _categoryClasses: Record<string, string>;
+    protected _categoryClasses: Record<string, string>;
 
     constructor(template: HTMLTemplateElement, events: EventEmitter) {
         this._template = template;
@@ -25,11 +25,10 @@ export class Card {
         const title = element.querySelector('.card__title');
         const image = element.querySelector('.card__image') as HTMLImageElement;
         const price = element.querySelector('.card__price');
-        const button = element.querySelector('.card__button');
         const category = element.querySelector('.card__category');
 
         if (title) title.textContent = item.title;
-        if (image) image.src = item.image;
+        if (image && item.image) image.src = item.image;
         if (price) {
             price.textContent = item.price ? `${item.price} синапсов` : 'Бесценно';
         }
@@ -45,26 +44,6 @@ export class Card {
             }
         }
 
-        if (button) {
-            button.replaceWith(button.cloneNode(true));
-            const newButton = element.querySelector('.card__button') as HTMLButtonElement;
-
-            if (newButton) {
-                newButton.textContent = item.price ? 'В корзину' : 'Не продаётся';
-
-                // Исправленная строка с приведением типа
-                if (item.price) {
-                    newButton.disabled = false;
-                    newButton.addEventListener('click', (event) => {
-                        event.stopPropagation();
-                        this._events.emit('basket:add', item);
-                    });
-                } else {
-                    newButton.disabled = true;
-                }
-            }
-        }
-
         return element;
     }
 }
@@ -75,26 +54,47 @@ export class CardPreview extends Card {
     }
 
     render(item: IProduct): HTMLElement {
-        const element = super.render(item);
-        const description = element.querySelector('.card__description');
+        const element = this._template.content.querySelector('.card')?.cloneNode(true) as HTMLElement;
+        if (!element) throw new Error('Card preview element not found in template');
+
+        const title = element.querySelector('.card__title');
+        const image = element.querySelector('.card__image') as HTMLImageElement;
+        const price = element.querySelector('.card__price');
+        const category = element.querySelector('.card__category');
+        const text = element.querySelector('.card__text');
         const button = element.querySelector('.card__button') as HTMLButtonElement;
 
-        if (description) description.textContent = item.description || 'Описание отсутствует';
+        if (title) title.textContent = item.title;
+        if (image && item.image) image.src = item.image;
+        if (price) {
+            price.textContent = item.price ? `${item.price} синапсов` : 'Бесценно';
+        }
+        if (text) text.textContent = item.description || 'Описание отсутствует';
 
-        if (button && item.price) {
-            button.textContent = 'В корзину';
-            button.replaceWith(button.cloneNode(true));
-            const newButton = element.querySelector('.card__button') as HTMLButtonElement;
+        if (category && item.category) {
+            category.textContent = item.category;
+            Object.values(this._categoryClasses).forEach(className => {
+                category.classList.remove(className);
+            });
+            const categoryClass = this._categoryClasses[item.category];
+            if (categoryClass) {
+                category.classList.add(categoryClass);
+            }
+        }
 
-            if (newButton) {
-                newButton.disabled = false;
-                newButton.addEventListener('click', (event) => {
+        if (button) {
+            button.textContent = item.price ? 'В корзину' : 'Не продаётся';
+            button.disabled = !item.price;
+
+            if (item.price) {
+                button.addEventListener('click', (event) => {
                     event.stopPropagation();
-                    this._events.emit('basket:add', item);
+                    button.textContent = 'Добавлено!';
+                    setTimeout(() => {
+                        this._events.emit('basket:add', item);
+                    }, 300);
                 });
             }
-        } else if (button) {
-            button.disabled = true;
         }
 
         return element;

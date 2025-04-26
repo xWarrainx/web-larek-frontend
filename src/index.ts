@@ -7,6 +7,7 @@ import { ApiListResponse } from "./components/base/api";
 import { API_URL, CDN_URL } from "./utils/constants";
 import { Card, CardPreview } from "./components/base/Card";
 import { Modal } from './components/base/Modal';
+import { Basket } from './components/base/Basket';
 
 // Инициализация основных компонентов
 const events = new EventEmitter();
@@ -25,8 +26,18 @@ if (!galleryElement) throw new Error('Gallery element not found');
 const cardTemplate = document.getElementById('card-catalog') as HTMLTemplateElement;
 if (!cardTemplate) throw new Error('Card template not found');
 
+const basketCounter = document.querySelector('.header__basket-counter');
+if (!basketCounter) throw new Error('Basket counter element not found');
+
+const basketButton = document.querySelector('.header__basket');
+if (!basketButton) throw new Error('Basket button not found');
+
+const basketTemplate = document.getElementById('basket') as HTMLTemplateElement;
+if (!basketTemplate) throw new Error('Basket template not found');
+
 // Инициализация компонента карточки
 const cardComponent = new Card(cardTemplate, events);
+const basketComponent = new Basket(basketTemplate, events);
 
 // Загрузка данных с сервера
 api.getProductList()
@@ -39,7 +50,22 @@ api.getProductList()
         galleryElement.innerHTML = '<p class="error">Произошла ошибка при загрузке товаров</p>';
     });
 
-// Обработчики событий (без дублирования)
+    // Обработчик клика по корзине в хедере
+basketButton.addEventListener('click', (event) => {
+    event.preventDefault();
+    events.emit('basket:open');
+});
+
+// Обработчик открытия корзины
+events.on('basket:open', () => {
+    const basketElement = basketComponent.render({
+        items: appData.basket,
+        total: appData.getOrderTotal()
+    });
+    modal.open(basketElement);
+});
+
+// Обработчики событий
 events.on('items:changed', (items: IProduct[]) => {
     renderCatalog(items);
 });
@@ -51,17 +77,33 @@ events.on('card:select', (item: IProduct) => {
 });
 
 events.on('basket:add', (product: IProduct) => {
-    // Проверяем, нет ли уже этого товара в корзине
-    if (!appData.basket.some(item => item.id === product.id)) {
-        appData.addToBasket(product);
-        modal.close();
-    }
+    appData.addToBasket(product);
+    modal.close();
 });
 
 events.on('basket:changed', (items: IProduct[]) => {
-    console.log('Корзина обновлена:', items);
-    // Обновляем UI корзины
     updateBasketUI(items);
+    if (modal.isOpened()) {
+        const basketElement = basketComponent.render({
+            items: appData.basket,
+            total: appData.getOrderTotal()
+        });
+        modal.open(basketElement);
+    }
+});
+
+events.on('basket:cleared', () => {
+    basketCounter.textContent = '0';
+});
+
+// В обработчике basket:remove
+events.on('basket:remove', (data: { id: string }) => {
+    appData.removeFromBasket(data.id);
+});
+
+// В обработчике order:open
+events.on('order:open', () => {
+    // Логика открытия формы заказа
 });
 
 // Функция рендеринга каталога
@@ -96,15 +138,10 @@ function renderCatalog(items: IProduct[]) {
 
 // Функция обновления UI корзины
 function updateBasketUI(items: IProduct[]) {
-    const basketCounter = document.querySelector('.basket__counter');
-    const basketTotal = document.querySelector('.basket__total');
-
-    if (basketCounter) {
-        basketCounter.textContent = items.length.toString();
-    }
-
-    if (basketTotal) {
-        const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
-        basketTotal.textContent = `${total} синапсов`;
-    }
+    // Обновляем счетчик в хедере
+    basketCounter.textContent = items.length.toString();
+    basketCounter.classList.add('header__basket-counter--updated');
+    setTimeout(() => {
+        basketCounter.classList.remove('header__basket-counter--updated');
+    }, 300);
 }
