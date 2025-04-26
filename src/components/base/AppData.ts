@@ -1,93 +1,68 @@
-import { Model } from "./Model";
-import { IProduct, IOrder, PaymentMethod, IOrderForm } from "../../types";
 import { EventEmitter } from "./events";
+import { IProduct } from "../../types";
 
-interface AppState {
-    catalog: IProduct[];
-    order: IOrder;
-    preview: string | null;
-}
-
-export class AppData extends Model<AppState> {
+export class AppData {
     private _catalog: IProduct[] = [];
-    private _order: IOrder = {
-        items: [],
-        payment: null,
-        address: '',
-        email: '',
-        phone: '',
-        total: 0
-    };
-    private _preview: string | null = null;
+    private _basket: IProduct[] = [];
+    private _order: {
+        payment?: string;
+        email?: string;
+        phone?: string;
+        address?: string;
+        total?: number;
+        items?: string[];
+    } = {};
+    private events: EventEmitter;
 
     constructor(events: EventEmitter) {
-        super({}, events);
+        this.events = events;
     }
 
     set catalog(items: IProduct[]) {
-        console.log('Установка каталога:', items);
         this._catalog = items;
-        this.emitChanges('items:changed', items); // Явно передаем массив items
+        this.events.emit('items:changed', this._catalog);
     }
 
     get catalog(): IProduct[] {
         return this._catalog;
     }
 
-    get order(): IOrder {
+    get basket(): IProduct[] {
+        return this._basket;
+    }
+
+    get order() {
         return this._order;
     }
 
-    set preview(value: string) {
-        this._preview = value;
-        this.emitChanges('preview:changed', { preview: this._preview });
-    }
-
-    addToBasket(item: IProduct): void {
-        if (!this._order.items.includes(item.id)) {
-            this._order.items.push(item.id);
-            this._order.total += item.price;
-            this.emitChanges('basket:changed', this._order);
+    addToBasket(product: IProduct) {
+        // Проверяем, нет ли уже этого товара в корзине
+        if (!this._basket.some(item => item.id === product.id)) {
+            this._basket.push(product);
+            this.updateOrder();
+            this.events.emit('basket:changed', this._basket);
         }
     }
 
-    removeFromBasket(id: string): void {
-        this._order.items = this._order.items.filter(item => item !== id);
-        const product = this._catalog.find(it => it.id === id);
-        if (product) {
-            this._order.total -= product.price;
-        }
-        this.emitChanges('basket:changed', { order: this._order });
+    removeFromBasket(id: string) {
+        this._basket = this._basket.filter(item => item.id !== id);
+        this.updateOrder();
+        this.events.emit('basket:changed', this._basket);
     }
 
-    clearBasket(): void {
-        this._order = {
-            items: [],
-            payment: null,
-            address: '',
-            email: '',
-            phone: '',
-            total: 0
-        };
-        this.emitChanges('basket:changed', { order: this._order });
+    private updateOrder() {
+        this._order.items = this._basket.map(item => item.id);
+        this._order.total = this.getOrderTotal();
     }
 
-    setPaymentMethod(method: PaymentMethod): void {
-        this._order.payment = method;
-        this.emitChanges('order:payment', { order: this._order });
+    getOrderTotal(): number {
+        return this._basket.reduce((total, item) => total + (item.price || 0), 0);
     }
 
-    setAddress(address: string): void {
-        this._order.address = address;
-        this.emitChanges('order:address', { order: this._order });
-    }
-
-    setContactField(field: keyof IOrderForm, value: string): void {
-        (this._order as any)[field] = value;
-        this.emitChanges('order:contacts', { order: this._order });
-    }
-
-    getProduct(id: string): IProduct | undefined {
-        return this._catalog.find(item => item.id === id);
+    clearBasket() {
+        this._basket = [];
+        this._order.items = [];
+        this._order.total = 0;
+        this.events.emit('basket:changed', this._basket);
     }
 }

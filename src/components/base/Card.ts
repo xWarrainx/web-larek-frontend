@@ -1,97 +1,102 @@
-import { Component } from './Component';
-import { IProduct } from '../../types';
-import { EventEmitter } from './events';
+import { EventEmitter } from "./events";
+import { IProduct } from "../../types";
 
-export class Card extends Component<IProduct> {
-    private clickHandler?: () => void;
+export class Card {
+    protected _template: HTMLTemplateElement;
+    protected _events: EventEmitter;
+    private _categoryClasses: Record<string, string>;
 
-
-    constructor(protected template: HTMLTemplateElement,
-        protected events: EventEmitter,
-        protected isPreview: boolean = false) {
-        super(template.content.firstElementChild as HTMLElement);
-    }
-
-    render(product: IProduct): HTMLElement {
-        // Удаляем старый обработчик, если есть
-        if (this.clickHandler && this.container) {
-            this.container.removeEventListener('click', this.clickHandler);
-        }
-        // Клонируем шаблон для каждого нового рендера
-        const content = this.template.content.cloneNode(true) as DocumentFragment;
-        this.container = content.firstElementChild as HTMLElement;
-
-        if (!this.container) {
-            throw new Error('Шаблон карточки пуст');
-        }
-
-        // Заполняем данные
-        this.setText('.card__title', product.title);
-        this.setText('.card__text', product.description || '');
-        this.setText('.card__price',
-            product.price !== null
-                ? `${product.price} синапсов`
-                : 'Бесценно');
-
-        this.setImage('.card__image', product.image, product.title);
-
-        // Устанавливаем категорию
-        const categoryClass = {
+    constructor(template: HTMLTemplateElement, events: EventEmitter) {
+        this._template = template;
+        this._events = events;
+        this._categoryClasses = {
             'софт-скил': 'card__category_soft',
-            'другое': 'card__category_other',
+            'хард-скил': 'card__category_hard',
             'дополнительное': 'card__category_additional',
             'кнопка': 'card__category_button',
-            'хард-скил': 'card__category_hard'
-        }[product.category] || '';
+            'другое': 'card__category_other'
+        };
+    }
 
-        this.setClass('.card__category', categoryClass);
-        this.setText('.card__category', product.category || '');
+    render(item: IProduct): HTMLElement {
+        const element = this._template.content.querySelector('.card')?.cloneNode(true) as HTMLElement;
+        if (!element) throw new Error('Card element not found in template');
 
-        // Устанавливаем ID продукта
-        if (product.id) {
-            this.container.dataset.id = product.id;
+        const title = element.querySelector('.card__title');
+        const image = element.querySelector('.card__image') as HTMLImageElement;
+        const price = element.querySelector('.card__price');
+        const button = element.querySelector('.card__button');
+        const category = element.querySelector('.card__category');
+
+        if (title) title.textContent = item.title;
+        if (image) image.src = item.image;
+        if (price) {
+            price.textContent = item.price ? `${item.price} синапсов` : 'Бесценно';
         }
 
-        this.clickHandler = () => {
-            this.events.emit('card:select', product);
-        };
-
-        this.container.addEventListener('click', this.clickHandler);
-
-        if (this.isPreview) {
-            this.setText('.card__price',
-                product.price !== null ? `${product.price} синапсов` : 'Бесценно');
-
-            const button = this.container.querySelector('.card__button');
-            if (button) {
-                button.addEventListener('click', () => {
-                    this.events.emit('basket:add', product);
-                });
+        if (category && item.category) {
+            category.textContent = item.category;
+            Object.values(this._categoryClasses).forEach(className => {
+                category.classList.remove(className);
+            });
+            const categoryClass = this._categoryClasses[item.category];
+            if (categoryClass) {
+                category.classList.add(categoryClass);
             }
         }
 
-        return this.container;
+        if (button) {
+            button.replaceWith(button.cloneNode(true));
+            const newButton = element.querySelector('.card__button') as HTMLButtonElement;
+
+            if (newButton) {
+                newButton.textContent = item.price ? 'В корзину' : 'Не продаётся';
+
+                // Исправленная строка с приведением типа
+                if (item.price) {
+                    newButton.disabled = false;
+                    newButton.addEventListener('click', (event) => {
+                        event.stopPropagation();
+                        this._events.emit('basket:add', item);
+                    });
+                } else {
+                    newButton.disabled = true;
+                }
+            }
+        }
+
+        return element;
     }
 }
 
 export class CardPreview extends Card {
-    constructor(
-        template: HTMLTemplateElement,
-        events: EventEmitter
-    ) {
-        super(template, events, true);
+    constructor(template: HTMLTemplateElement, events: EventEmitter) {
+        super(template, events);
+    }
+
+    render(item: IProduct): HTMLElement {
+        const element = super.render(item);
+        const description = element.querySelector('.card__description');
+        const button = element.querySelector('.card__button') as HTMLButtonElement;
+
+        if (description) description.textContent = item.description || 'Описание отсутствует';
+
+        if (button && item.price) {
+            button.textContent = 'В корзину';
+            button.replaceWith(button.cloneNode(true));
+            const newButton = element.querySelector('.card__button') as HTMLButtonElement;
+
+            if (newButton) {
+                newButton.disabled = false;
+                newButton.addEventListener('click', (event) => {
+                    event.stopPropagation();
+                    this._events.emit('basket:add', item);
+                });
+            }
+        } else if (button) {
+            button.disabled = true;
+        }
+
+        return element;
     }
 }
-
-export function createProductCard(product: IProduct, inBasket: boolean): HTMLElement {
-    const template = document.getElementById('card-template') as HTMLTemplateElement;
-    const card = template.content.cloneNode(true) as HTMLElement;
-
-    card.querySelector('.card__title').textContent = product.title;
-    card.querySelector('.card__price').textContent = `${product.price} синапсов`;
-
-    const button = card.querySelector('.card__button');
-    button.textContent = inBasket ? 'Убрать' : 'Купить';
-
-    return card.firstElementChild as HTMLElement;
-  }

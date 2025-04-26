@@ -1,4 +1,4 @@
-import './scss/styles.scss'; // Импорт главного файла стилей
+import './scss/styles.scss';
 import { EventEmitter } from "./components/base/events";
 import { LarekApi } from "./components/LarekApi";
 import { AppData } from "./components/base/AppData";
@@ -12,29 +12,18 @@ import { Modal } from './components/base/Modal';
 const events = new EventEmitter();
 const api = new LarekApi(CDN_URL, API_URL);
 const appData = new AppData(events);
+
 const previewTemplate = document.getElementById('card-preview') as HTMLTemplateElement;
+if (!previewTemplate) throw new Error('Preview template not found');
+
 const modal = new Modal(document.getElementById('modal-container'), events);
-
-// Обработчик выбора карточки
-events.on('card:select', (item: IProduct) => {
-    const preview = new CardPreview(previewTemplate, events);
-    const previewElement = preview.render(item);
-    modal.open(previewElement);
-});
-
-events.on('basket:add', (product: IProduct) => {
-    appData.addToBasket(product);
-    modal.close();
-});
 
 // Получаем DOM элементы
 const galleryElement = document.querySelector('.gallery');
-const cardTemplate = document.getElementById('card-catalog') as HTMLTemplateElement;
+if (!galleryElement) throw new Error('Gallery element not found');
 
-// Проверяем наличие элементов
-if (!galleryElement || !cardTemplate || !previewTemplate) {
-    throw new Error('Не найдены необходимые DOM элементы');
-}
+const cardTemplate = document.getElementById('card-catalog') as HTMLTemplateElement;
+if (!cardTemplate) throw new Error('Card template not found');
 
 // Инициализация компонента карточки
 const cardComponent = new Card(cardTemplate, events);
@@ -50,30 +39,37 @@ api.getProductList()
         galleryElement.innerHTML = '<p class="error">Произошла ошибка при загрузке товаров</p>';
     });
 
-// Обработчик изменения списка товаров
+// Обработчики событий (без дублирования)
 events.on('items:changed', (items: IProduct[]) => {
     renderCatalog(items);
 });
 
-// Обработчик превью товара
 events.on('card:select', (item: IProduct) => {
     const preview = new CardPreview(previewTemplate, events);
     const previewElement = preview.render(item);
     modal.open(previewElement);
 });
 
-// Обработчик добавления в корзину товара
 events.on('basket:add', (product: IProduct) => {
-    appData.addToBasket(product);
-    modal.close();
+    // Проверяем, нет ли уже этого товара в корзине
+    if (!appData.basket.some(item => item.id === product.id)) {
+        appData.addToBasket(product);
+        modal.close();
+    }
+});
+
+events.on('basket:changed', (items: IProduct[]) => {
+    console.log('Корзина обновлена:', items);
+    // Обновляем UI корзины
+    updateBasketUI(items);
 });
 
 // Функция рендеринга каталога
 function renderCatalog(items: IProduct[]) {
-    // Очищаем галерею
+    if (!galleryElement) return;
+
     galleryElement.innerHTML = '';
 
-    // Проверяем входные данные
     if (!items || !Array.isArray(items)) {
         console.error('Некорректные данные для рендеринга:', items);
         galleryElement.innerHTML = '<p class="empty">Нет данных для отображения</p>';
@@ -85,24 +81,30 @@ function renderCatalog(items: IProduct[]) {
         return;
     }
 
-    // Рендерим каждую карточку
     items.forEach(item => {
-        const cardElement = cardComponent.render(item);
-        cardElement.addEventListener('click', () => {
-            events.emit('card:select', item);
-        });
-        galleryElement.appendChild(cardElement);
+        try {
+            const cardElement = cardComponent.render(item);
+            cardElement.addEventListener('click', () => {
+                events.emit('card:select', item);
+            });
+            galleryElement.appendChild(cardElement);
+        } catch (error) {
+            console.error('Ошибка рендеринга карточки:', error);
+        }
     });
 }
 
-// Обработчик выбора карточки
-events.on('card:select', (item: IProduct) => {
-    console.log('Выбран товар:', item);
-    // Здесь будет логика открытия модального окна
-});
+// Функция обновления UI корзины
+function updateBasketUI(items: IProduct[]) {
+    const basketCounter = document.querySelector('.basket__counter');
+    const basketTotal = document.querySelector('.basket__total');
 
-// Подписка на события
-events.on('basket:changed', (order) => {
-    console.log('Обновление корзины:', order);
-    // Обновляем UI корзины
-});
+    if (basketCounter) {
+        basketCounter.textContent = items.length.toString();
+    }
+
+    if (basketTotal) {
+        const total = items.reduce((sum, item) => sum + (item.price || 0), 0);
+        basketTotal.textContent = `${total} синапсов`;
+    }
+}
