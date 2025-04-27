@@ -1,4 +1,4 @@
-import { IProduct, IOrder } from '../types';
+import { IProduct, IOrder, IOrderResult } from '../types';
 import { Api, ApiListResponse } from './base/api';
 
 /*----- Интерфейс API-клиента -----*/
@@ -17,26 +17,31 @@ export class LarekApi extends Api implements ILarekApi {
         this.cdn = cdn;
     }
 
-    async getProductList(): Promise<ApiListResponse<IProduct>> {
-        const data = await this.get<ApiListResponse<IProduct>>('/product');
-        return {
-            total: data.total,
-            items: data.items.map((item: IProduct) => ({
+    getProductList(): Promise<ApiListResponse<IProduct>> {
+        return this.get<ApiListResponse<IProduct>>('/product')
+            .then((data: ApiListResponse<IProduct>) => ({
+                total: data.total,
+                items: data.items.map((item: IProduct) => ({
+                    ...item,
+                    image: this.cdn + item.image
+                }))
+            }));
+    }
+
+    getProductItem(id: string): Promise<IProduct> {
+        return this.get<IProduct>(`/product/${id}`)
+            .then((item: IProduct) => ({
                 ...item,
                 image: this.cdn + item.image
-            }))
-        };
+            }));
     }
 
-    async getProductItem(id: string): Promise<IProduct> {
-        const item = await this.get<IProduct>(`/product/${id}`);
-        return {
-            ...item,
-            image: this.cdn + item.image
-        };
+    createOrder(order: IOrder): Promise<{ id: string }> {
+        return this.post<{ id: string }>('/order', order);
     }
 
-    async createOrder(order: IOrder): Promise<{ id: string }> {
-        return await this.post<{ id: string }>('/order', order);
+    orderProducts(order: IOrder): Promise<IOrderResult> {
+        return this.post('/order', order)
+            .then((data: IOrderResult) => data);
     }
 }

@@ -8,6 +8,7 @@ import { API_URL, CDN_URL } from "./utils/constants";
 import { Card, CardPreview } from "./components/base/Card";
 import { Modal } from './components/base/Modal';
 import { Basket } from './components/base/Basket';
+import { OrderForm, ContactsForm, Success } from './components/base/OrderForm';
 
 // Инициализация основных компонентов
 const events = new EventEmitter();
@@ -34,6 +35,14 @@ if (!basketButton) throw new Error('Basket button not found');
 
 const basketTemplate = document.getElementById('basket') as HTMLTemplateElement;
 if (!basketTemplate) throw new Error('Basket template not found');
+
+const orderTemplate = document.getElementById('order') as HTMLTemplateElement;
+if (!orderTemplate) throw new Error('Order template not found');
+const orderComponent = new OrderForm(orderTemplate, events);
+
+const contactsTemplate = document.getElementById('contacts') as HTMLTemplateElement;
+if (!contactsTemplate) throw new Error('Contacts template not found');
+const contactsComponent = new OrderForm(contactsTemplate, events);
 
 // Инициализация компонента карточки
 const cardComponent = new Card(cardTemplate, events);
@@ -103,7 +112,51 @@ events.on('basket:remove', (data: { id: string }) => {
 
 // В обработчике order:open
 events.on('order:open', () => {
-    // Логика открытия формы заказа
+    const orderElement = orderComponent.render();
+    modal.open(orderElement);
+});
+
+// Обработчик перехода к контактам
+events.on('order:submit', () => {
+    const orderData = orderComponent.getFormData();
+    appData.order.payment = orderData.payment;
+    appData.order.address = orderData.address;
+
+    const contactsElement = contactsComponent.render();
+    modal.open(contactsElement);
+});
+
+// Обработчик оформления заказа
+events.on('contacts:submit', () => {
+    const contactsData = contactsComponent.getFormData();
+    appData.order.email = contactsData.email;
+    appData.order.phone = contactsData.phone;
+
+    api.orderProducts(appData.order)
+        .then(() => {
+            const successTemplate = document.getElementById('success') as HTMLTemplateElement;
+            const successElement = successTemplate.content.cloneNode(true) as HTMLElement;
+
+            const successTitle = successElement.querySelector('.order-success__title');
+            const successDesc = successElement.querySelector('.order-success__description');
+
+            if (successTitle && successDesc) {
+                successDesc.textContent = `Списано ${appData.order.total} синапсов`;
+
+                const closeButton = successElement.querySelector('.order-success__close');
+                if (closeButton) {
+                    closeButton.addEventListener('click', () => {
+                        modal.close();
+                        appData.clearBasket();
+                    });
+                }
+            }
+
+            modal.open(successElement);
+        })
+        .catch(error => {
+            console.error('Ошибка оформления заказа:', error);
+        });
 });
 
 // Функция рендеринга каталога

@@ -1,34 +1,76 @@
 import { Component } from "./Component";
 import { EventEmitter } from "./events";
-import { PaymentMethod } from "../../types";
+import { PaymentMethod, IOrderForm } from "../../types";
 
 // Форма заказа
-export class OrderForm extends Component<{ payment: PaymentMethod | null; address: string }> {
-    private paymentButtons: NodeListOf<HTMLButtonElement>;
-    private addressInput: HTMLInputElement;
+export class OrderForm {
+    protected _template: HTMLTemplateElement;
+    protected _events: EventEmitter;
+    protected _paymentButtons: HTMLButtonElement[];
+    protected _submitButton: HTMLButtonElement;
+    protected _form: HTMLFormElement;
 
-    constructor(container: HTMLFormElement, protected events: EventEmitter) {
-        super(container);
+    constructor(template: HTMLTemplateElement, events: EventEmitter) {
+        this._template = template;
+        this._events = events;
+    }
 
-        this.paymentButtons = this.container.querySelectorAll('.button_alt');
-        this.addressInput = this.container.querySelector('.form__input');
+    render(): HTMLElement {
+        const element = this._template.content.querySelector('.form')?.cloneNode(true) as HTMLElement;
+        if (!element) throw new Error('Order form element not found in template');
 
-        this.paymentButtons.forEach(button => {
+        this._form = element as HTMLFormElement;
+        this._paymentButtons = Array.from(element.querySelectorAll('.button_alt'));
+        this._submitButton = element.querySelector('.order__button');
+
+        this._paymentButtons.forEach(button => {
             button.addEventListener('click', () => {
-                this.toggleButtons(button);
-                this.events.emit('order:payment:change', { payment: button.name as PaymentMethod });
+                this.setPaymentMethod(button.name);
             });
         });
 
-        this.addressInput.addEventListener('change', () => {
-            this.events.emit('order:address:change', { address: this.addressInput.value });
+        this._form.addEventListener('submit', (e) => {
+            e.preventDefault();
+            this._events.emit('order:submit');
         });
+
+        this._form.addEventListener('input', () => {
+            this.validateForm();
+        });
+
+        return element;
     }
 
-    private toggleButtons(selected: HTMLButtonElement): void {
-        this.paymentButtons.forEach(button => {
-            button.classList.toggle('button_alt-active', button === selected);
+    setPaymentMethod(method: string) {
+        this._paymentButtons.forEach(button => {
+            button.classList.toggle('button_alt-active', button.name === method);
         });
+        this._events.emit('order.payment:change', { method });
+        this.validateForm();
+    }
+
+    validateForm() {
+        const addressInput = this._form.elements.namedItem('address') as HTMLInputElement;
+        const isAddressValid = addressInput.value.trim().length > 0;
+        const isPaymentSelected = this._paymentButtons.some(btn =>
+            btn.classList.contains('button_alt-active')
+        );
+
+        this._submitButton.disabled = !(isAddressValid && isPaymentSelected);
+    }
+
+    getFormData(): IOrderForm {
+        const formData = new FormData(this._form);
+        const paymentMethod = this._paymentButtons.find(btn =>
+            btn.classList.contains('button_alt-active')
+        )?.name;
+
+        return {
+            payment: paymentMethod,
+            address: formData.get('address') as string,
+            email: '',
+            phone: ''
+        };
     }
 }
 

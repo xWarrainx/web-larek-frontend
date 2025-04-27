@@ -9,17 +9,20 @@ export interface IProduct {
 
 export interface IOrder {
     items: string[];
-    payment: 'online' | 'offline' | null;
+    payment: string;
     address: string;
     email: string;
     phone: string;
     total: number;
 }
+export interface IOrderResult {
+    id: string
+}
 
 export type PaymentMethod = 'online' | 'offline';
 
 export interface IOrderForm {
-    payment: PaymentMethod;
+    payment: string;
     address: string;
     email: string;
     phone: string;

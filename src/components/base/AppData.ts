@@ -1,17 +1,18 @@
 import { EventEmitter } from "./events";
 import { IProduct } from "../../types";
+import { IOrder } from "../../types";
 
 export class AppData {
     private _catalog: IProduct[] = [];
     private _basket: IProduct[] = [];
-    private _order: {
-        payment?: string;
-        email?: string;
-        phone?: string;
-        address?: string;
-        total?: number;
-        items?: string[];
-    } = {};
+    private _order: IOrder = {
+        payment: '',
+        email: '',
+        phone: '',
+        address: '',
+        total: 0,
+        items: []
+    };
     private events: EventEmitter;
 
     constructor(events: EventEmitter) {
