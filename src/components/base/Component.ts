@@ -5,7 +5,10 @@ export abstract class Component<T> {
     constructor(container: HTMLElement) {
         this.container = container;
     }
-
+    
+    getContainer(): HTMLElement {
+        return this.container;
+    }
     // Общие методы для всех компонентов
     protected setText(selector: string, value: string): void {
         const element = this.container.querySelector(selector);
