@@ -19,7 +19,6 @@ export class Basket {
 
     render(data: IBasketView): HTMLElement {
         const element = this._template.content.querySelector('.basket')?.cloneNode(true) as HTMLElement;
-        if (!element) throw new Error('Basket element not found in template');
 
         this._listElement = element.querySelector('.basket__list');
         this._totalElement = element.querySelector('.basket__price');
@@ -70,4 +69,5 @@ export class Basket {
             this._totalElement.textContent = `${total} синапсов`;
         }
     }
+    
 }

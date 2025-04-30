@@ -13,7 +13,6 @@ export class Modal {
         this._content = this._container.querySelector('.modal__content');
         this._closeButton = this._container.querySelector('.modal__close');
 
-        // Обработчик для клавиши Esc
         this._handleEscKey = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
                 this.close();
@@ -34,7 +33,6 @@ export class Modal {
         this._container.classList.add('modal_active');
         document.body.style.overflow = 'hidden';
 
-        // Добавляем обработчик при открытии
         document.addEventListener('keydown', this._handleEscKey);
         this._events.emit('modal:open');
     }
@@ -42,12 +40,11 @@ export class Modal {
     isOpened(): boolean {
         return this._container.classList.contains('modal_active');
     }
-    
+
     close() {
         this._container.classList.remove('modal_active');
         document.body.style.overflow = '';
 
-        // Удаляем обработчик при закрытии
         document.removeEventListener('keydown', this._handleEscKey);
         this._events.emit('modal:close');
     }

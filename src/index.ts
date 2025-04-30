@@ -2,7 +2,7 @@ import './scss/styles.scss';
 import { EventEmitter } from "./components/base/events";
 import { LarekApi } from "./components/LarekApi";
 import { AppData } from "./components/base/AppData";
-import { IProduct, IOrderForm } from "./types";
+import { IProduct } from "./types";
 import { ApiListResponse } from "./components/base/api";
 import { API_URL, CDN_URL } from "./utils/constants";
 import { Card, CardPreview } from "./components/base/Card";

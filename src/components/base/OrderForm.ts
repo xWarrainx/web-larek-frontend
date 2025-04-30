@@ -3,7 +3,6 @@ import { EventEmitter } from "./events";
 import { PaymentMethod, IOrderForm } from "../../types";
 
 export class OrderForm extends Component<IOrderForm> {
-
     protected _paymentButtons: HTMLButtonElement[];
     protected _submitButton: HTMLButtonElement;
     protected _form: HTMLFormElement;
@@ -20,14 +19,13 @@ export class OrderForm extends Component<IOrderForm> {
         this._formType = formType;
 
         this._form = this.container.querySelector('form') as HTMLFormElement;
-        if (!this._form) throw new Error('Form element not found');
 
         this._initializeElements();
         this._bindEvents();
     }
 
-    render(): HTMLElement {
-        return this.getContainer();
+        render(): HTMLElement {
+            return this.getContainer();
     }
     protected _initializeElements(): void {
         this._paymentButtons = Array.from(this._form.querySelectorAll('.button_alt'));
@@ -74,12 +72,10 @@ export class OrderForm extends Component<IOrderForm> {
             const addressInput = this._form.querySelector('input[name="address"]') as HTMLInputElement;
             const isAddressValid = addressInput?.value.trim().length > 0;
 
-            // Проверяем, что выбран способ оплаты
             const isPaymentSelected = this._paymentButtons.some(btn =>
                 btn.classList.contains('button_alt-active')
             );
 
-            // Получаем кнопку submit
             const submitButton = this._form.querySelector('.order__button') as HTMLButtonElement;
             if (submitButton) {
                 submitButton.disabled = !(isAddressValid && isPaymentSelected);
@@ -87,14 +83,12 @@ export class OrderForm extends Component<IOrderForm> {
 
             return isAddressValid && isPaymentSelected;
         } else {
-            // Валидация для формы контактов
             const emailInput = this._form.querySelector('input[name="email"]') as HTMLInputElement;
             const phoneInput = this._form.querySelector('input[name="phone"]') as HTMLInputElement;
 
             const isEmailValid = this._validateEmail(emailInput);
             const isPhoneValid = this._validatePhone(phoneInput);
 
-            // Получаем кнопку оплаты
             const payButton = this._form.querySelector('.button[type="submit"]') as HTMLButtonElement;
             if (payButton) {
                 payButton.disabled = !(isEmailValid && isPhoneValid);

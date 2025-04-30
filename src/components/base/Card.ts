@@ -20,7 +20,6 @@ export class Card {
 
     render(item: IProduct): HTMLElement {
         const element = this._template.content.querySelector('.card')?.cloneNode(true) as HTMLElement;
-        if (!element) throw new Error('Card element not found in template');
 
         const title = element.querySelector('.card__title');
         const image = element.querySelector('.card__image') as HTMLImageElement;
@@ -55,7 +54,6 @@ export class CardPreview extends Card {
 
     render(item: IProduct): HTMLElement {
         const element = this._template.content.querySelector('.card')?.cloneNode(true) as HTMLElement;
-        if (!element) throw new Error('Card preview element not found in template');
 
         const title = element.querySelector('.card__title');
         const image = element.querySelector('.card__image') as HTMLImageElement;

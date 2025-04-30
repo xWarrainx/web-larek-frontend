@@ -1,14 +1,12 @@
 import { IProduct, IOrder, IOrderResult } from '../types';
 import { Api, ApiListResponse } from './base/api';
 
-/*----- Интерфейс API-клиента -----*/
 export interface ILarekApi {
     getProductList(): Promise<ApiListResponse<IProduct>>;
     getProductItem(id: string): Promise<IProduct>;
     createOrder(order: IOrder): Promise<{ id: string }>;
 }
 
-/*----- Реализация API -----*/
 export class LarekApi extends Api implements ILarekApi {
     readonly cdn: string;
 
