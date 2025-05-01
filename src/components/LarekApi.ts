@@ -21,7 +21,7 @@ export class LarekApi extends Api implements ILarekApi {
                 total: data.total,
                 items: data.items.map((item: IProduct) => ({
                     ...item,
-                    image: this.cdn + item.image
+                    image: this.cdn + item.image.replace(".svg", ".png")
                 }))
             }));
     }

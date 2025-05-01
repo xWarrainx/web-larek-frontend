@@ -1,189 +1,49 @@
-import { Component } from "./Component";
+import { Form } from "./Form";
 import { EventEmitter } from "./events";
-import { PaymentMethod, IOrderForm } from "../../types";
 
-export class OrderForm extends Component<IOrderForm> {
-    protected _paymentButtons: HTMLButtonElement[];
-    protected _submitButton: HTMLButtonElement;
-    protected _form: HTMLFormElement;
-    protected _formType: 'order' | 'contacts';
-    private _events: EventEmitter;
+export class OrderForm extends Form {
+    private paymentMethod: string = '';
 
-    constructor(
-        container: HTMLElement,
-        events: EventEmitter,
-        formType: 'order' | 'contacts'
-    ) {
-        super(container);
-        this._events = events;
-        this._formType = formType;
+    constructor(container: HTMLElement, events: EventEmitter) {
+        super(container, events);
 
-        this._form = this.container.querySelector('form') as HTMLFormElement;
-
-        this._initializeElements();
-        this._bindEvents();
-    }
-
-        render(): HTMLElement {
-            return this.getContainer();
-    }
-    protected _initializeElements(): void {
-        this._paymentButtons = Array.from(this._form.querySelectorAll('.button_alt'));
-        this._submitButton = this._form.querySelector(
-            this._formType === 'order' ? '.order__button' : '.button'
-        ) as HTMLButtonElement;
-    }
-
-    protected _bindEvents(): void {
-        if (this._formType === 'order') {
-            this._paymentButtons.forEach(button => {
-                button.addEventListener('click', () => {
-                    this.setPaymentMethod(button.name);
+        // Обработка выбора способа оплаты
+        const paymentButtons = this.container.querySelectorAll('button[type="button"]');
+        paymentButtons.forEach(button => {
+            button.addEventListener('click', () => {
+                // Удаляем активный класс у всех кнопок
+                paymentButtons.forEach(btn => {
+                    btn.classList.remove('button_alt-active');
                 });
-            });
-        }
 
-        this._form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            if (this.validateForm()) {
-                this._events.emit(`${this._formType}:submit`, this.getFormData());
-            }
-        });
-
-        this._form.addEventListener('input', () => {
-            this.validateForm();
-        });
-    }
-
-    setPaymentMethod(method: string): void {
-        this._paymentButtons.forEach(button => {
-            if (button.name === method) {
+                // Добавляем класс к выбранной кнопке
                 button.classList.add('button_alt-active');
-            } else {
-                button.classList.remove('button_alt-active');
-            }
+
+                // Сохраняем выбранный способ оплаты
+                this.paymentMethod = button.getAttribute('name') || '';
+
+                // Обновляем состояние кнопки "Далее"
+                this.updateSubmitButton(this.validate());
+            });
         });
-        this._events.emit('order.payment:change', { method });
-        this.validateForm();
+
+        // Валидация при изменении адреса
+        const addressInput = this.container.querySelector('input[name="address"]');
+        addressInput?.addEventListener('input', () => {
+            this.updateSubmitButton(this.validate());
+        });
     }
 
-    validateForm(): boolean {
-        if (this._formType === 'order') {
-            const addressInput = this._form.querySelector('input[name="address"]') as HTMLInputElement;
-            const isAddressValid = addressInput?.value.trim().length > 0;
-
-            const isPaymentSelected = this._paymentButtons.some(btn =>
-                btn.classList.contains('button_alt-active')
-            );
-
-            const submitButton = this._form.querySelector('.order__button') as HTMLButtonElement;
-            if (submitButton) {
-                submitButton.disabled = !(isAddressValid && isPaymentSelected);
-            }
-
-            return isAddressValid && isPaymentSelected;
-        } else {
-            const emailInput = this._form.querySelector('input[name="email"]') as HTMLInputElement;
-            const phoneInput = this._form.querySelector('input[name="phone"]') as HTMLInputElement;
-
-            const isEmailValid = this._validateEmail(emailInput);
-            const isPhoneValid = this._validatePhone(phoneInput);
-
-            const payButton = this._form.querySelector('.button[type="submit"]') as HTMLButtonElement;
-            if (payButton) {
-                payButton.disabled = !(isEmailValid && isPhoneValid);
-
-                // Добавляем/удаляем класс для визуального состояния
-                if (isEmailValid && isPhoneValid) {
-                    payButton.classList.remove('button--disabled');
-                } else {
-                    payButton.classList.add('button--disabled');
-                }
-            }
-
-            return isEmailValid && isPhoneValid;
-        }
+    protected validate(): boolean {
+        const addressInput = this.container.querySelector('input[name="address"]') as HTMLInputElement;
+        return !!this.paymentMethod && addressInput?.value.trim().length > 0;
     }
 
-    private _validateEmail(input: HTMLInputElement): boolean {
-        const value = input.value.trim();
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-        const isValid = emailRegex.test(value);
-
-        this._toggleError(input, !isValid, 'Введите корректный email');
-        return isValid;
-    }
-
-    private _validatePhone(input: HTMLInputElement): boolean {
-        const value = input.value.trim();
-        // Проверяем, что телефон содержит минимум 10 цифр
-        const digitsOnly = value.replace(/\D/g, '');
-        const isValid = digitsOnly.length >= 10;
-
-        this._toggleError(input, !isValid, 'Введите корректный номер (минимум 10 цифр)');
-        return isValid;
-    }
-
-    private _toggleError(input: HTMLInputElement, show: boolean, message?: string): void {
-        const fieldContainer = input.closest('.order__field');
-
-        if (show) {
-            this.setClass(`input[name="${input.name}"]`, 'invalid', true);
-            if (message && !fieldContainer?.querySelector('.error-message')) {
-                const errorElement = document.createElement('span');
-                errorElement.className = 'error-message';
-                errorElement.textContent = message;
-                fieldContainer?.appendChild(errorElement);
-            }
-        } else {
-            this.setClass(`input[name="${input.name}"]`, 'invalid', false);
-            fieldContainer?.querySelector('.error-message')?.remove();
-        }
-    }
-
-    getFormData(): IOrderForm {
-        const formData = new FormData(this._form);
-        const paymentMethod = this._paymentButtons.find(btn =>
-            btn.classList.contains('button_alt-active')
-        )?.name;
-
+    public getFormData() {
+        const addressInput = this.container.querySelector('input[name="address"]') as HTMLInputElement;
         return {
-            payment: paymentMethod as PaymentMethod,
-            address: formData.get('address') as string,
-            email: this._formType === 'contacts' ? formData.get('email') as string : '',
-            phone: this._formType === 'contacts' ? formData.get('phone') as string : ''
+            payment: this.paymentMethod,
+            address: addressInput.value
         };
-    }
-
-    // Реализация методов Component
-    setText(selector: string, text: string): void {
-        const element = this.container.querySelector(selector);
-        if (element) element.textContent = text;
-    }
-
-    setClass(selector: string, className: string, state?: boolean): void {
-        const element = this.container.querySelector(selector);
-        if (element) {
-            if (state === undefined) {
-                element.classList.add(className);
-            } else {
-                element.classList.toggle(className, state);
-            }
-        }
-    }
-
-    setImage(selector: string, src: string, alt?: string): void {
-        const element = this.container.querySelector(selector) as HTMLImageElement;
-        if (element) {
-            element.src = src;
-            if (alt) element.alt = alt;
-        }
-    }
-
-    setDisabled(selector: string, state: boolean): void {
-        const element = this.container.querySelector(selector) as HTMLElement;
-        if (element) {
-            element.toggleAttribute('disabled', state);
-        }
     }
 }

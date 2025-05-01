@@ -28,6 +28,10 @@ export class AppData {
         return this._catalog;
     }
 
+    isInBasket(product: IProduct): boolean {
+        return this._basket.some(item => item.id === product.id);
+    }
+
     get basket(): IProduct[] {
         return this._basket;
     }
@@ -41,17 +45,13 @@ export class AppData {
     }
 
     addToBasket(product: IProduct) {
-        if (!this._basket.some(item => item.id === product.id)) {
+        if (!this.isInBasket(product)) {
             this._basket.push(product);
-            this.updateOrder();
-            this.events.emit('basket:changed', this._basket);
         }
     }
 
     removeFromBasket(id: string) {
         this._basket = this._basket.filter(item => item.id !== id);
-        this.updateOrder();
-        this.events.emit('basket:changed', this._basket);
     }
 
     private updateOrder() {
@@ -65,9 +65,5 @@ export class AppData {
 
     clearBasket() {
         this._basket = [];
-        this._order.items = [];
-        this._order.total = 0;
-        this.events.emit('basket:changed', this._basket);
-        this.events.emit('basket:cleared');
     }
 }

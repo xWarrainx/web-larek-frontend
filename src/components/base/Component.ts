@@ -5,12 +5,13 @@ export abstract class Component<T> {
     constructor(container: HTMLElement) {
         this.container = container;
     }
-    
+
     getContainer(): HTMLElement {
         return this.container;
     }
+    
     // Общие методы для всех компонентов
-    protected setText(selector: string, value: string): void {
+    setText(selector: string, value: string): void {
         const element = this.container.querySelector(selector);
         if (element) element.textContent = value;
     }
@@ -34,7 +35,7 @@ export abstract class Component<T> {
         }
     }
 
-    protected setDisabled(selector: string, state: boolean): void {
+    setDisabled(selector: string, state: boolean): void {
         const element = this.container.querySelector(selector) as HTMLButtonElement;
         if (element) element.disabled = state;
     }

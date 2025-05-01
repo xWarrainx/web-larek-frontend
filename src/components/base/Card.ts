@@ -1,5 +1,6 @@
 import { EventEmitter } from "./events";
 import { IProduct } from "../../types";
+import { AppData } from "./AppData";
 
 export class Card {
     protected _template: HTMLTemplateElement;
@@ -48,19 +49,45 @@ export class Card {
 }
 
 export class CardPreview extends Card {
-    constructor(template: HTMLTemplateElement, events: EventEmitter) {
+    protected _element: HTMLElement;
+    protected _button: HTMLButtonElement;
+    protected _inBasket: boolean = false;
+    protected _currentItem: IProduct | null = null;
+
+    constructor(
+        protected template: HTMLTemplateElement,
+        protected events: EventEmitter,
+        protected appData: AppData
+    ) {
         super(template, events);
+
+        this._element = template.content.querySelector('.card')?.cloneNode(true) as HTMLElement;
+        if (!this._element) {
+            throw new Error('Preview template content is empty');
+        }
+
+        this._button = this._element.querySelector('.card__button') as HTMLButtonElement;
+        if (!this._button) {
+            throw new Error('Button .card__button not found in preview template');
+        }
+
+        this._button.addEventListener('click', (e) => {
+            e.preventDefault();
+            e.stopPropagation();
+            this.toggleBasket();
+        });
+
+        events.on('basket:changed', () => this.updateButtonState());
     }
 
     render(item: IProduct): HTMLElement {
-        const element = this._template.content.querySelector('.card')?.cloneNode(true) as HTMLElement;
+        this._currentItem = item;
 
-        const title = element.querySelector('.card__title');
-        const image = element.querySelector('.card__image') as HTMLImageElement;
-        const price = element.querySelector('.card__price');
-        const category = element.querySelector('.card__category');
-        const text = element.querySelector('.card__text');
-        const button = element.querySelector('.card__button') as HTMLButtonElement;
+        const title = this._element.querySelector('.card__title');
+        const image = this._element.querySelector('.card__image') as HTMLImageElement;
+        const price = this._element.querySelector('.card__price');
+        const category = this._element.querySelector('.card__category');
+        const text = this._element.querySelector('.card__text');
 
         if (title) title.textContent = item.title;
         if (image && item.image) image.src = item.image;
@@ -80,21 +107,30 @@ export class CardPreview extends Card {
             }
         }
 
-        if (button) {
-            button.textContent = item.price ? 'В корзину' : 'Не продаётся';
-            button.disabled = !item.price;
+        this.updateButtonState();
 
-            if (item.price) {
-                button.addEventListener('click', (event) => {
-                    event.stopPropagation();
-                    button.textContent = 'Добавлено!';
-                    setTimeout(() => {
-                        this._events.emit('basket:add', item);
-                    }, 300);
-                });
-            }
+        if (this._button) {
+            this._button.textContent = item.price ? 'В корзину' : 'Не продаётся';
+            this._button.disabled = !item.price;
         }
 
-        return element;
+        return this._element;
+    }
+
+    private toggleBasket() {
+        if (!this._currentItem) return;
+
+        if (this._inBasket) {
+            this.events.emit('basket:remove', { id: this._currentItem.id });
+        } else {
+            this.events.emit('basket:add', this._currentItem);
+        }
+    }
+
+    private updateButtonState() {
+        if (!this._currentItem || !this._button) return;
+
+        this._inBasket = this.appData.isInBasket(this._currentItem);
+        this._button.textContent = this._inBasket ? 'Удалить из корзины' : 'В корзину';
     }
 }
