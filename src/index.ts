@@ -24,23 +24,26 @@ const orderTemplate = document.getElementById('order') as HTMLTemplateElement;
 const contactsTemplate = document.getElementById('contacts') as HTMLTemplateElement;
 const successTemplate = document.getElementById('success') as HTMLTemplateElement;
 
-// Инициализация модального окна
-const modal = new Modal('modal-container', events);
+const basketElement = createFromTemplate(basketTemplate);
+const cardTemplateElement = createFromTemplate(cardTemplate);
+const cardPreviewElement = createFromTemplate(cardPreviewTemplate);
+const orderFormElement = createFromTemplate(orderTemplate);
+const contactsFormElement = createFromTemplate(contactsTemplate);
+
+// Инициализация компонентов
+const modalContainer = document.getElementById('modal-container')!;
+const modal = new Modal(modalContainer, events);
+
+const basket = new Basket(createFromTemplate(basketTemplate), events);
+const cardComponent = new Card(cardTemplate, events);
+const preview = new CardPreview(cardPreviewTemplate, events, appData);
+const orderForm = new OrderForm(orderFormElement, events);
+const contactsForm = new ContactsForm(contactsFormElement, events);
 
 // Получаем DOM элементы
 const galleryElement = document.querySelector('.gallery');
 const basketCounter = document.querySelector('.header__basket-counter');
 const basketButton = document.querySelector('.header__basket');
-
-if (!galleryElement || !basketCounter || !basketButton) {
-    throw new Error('Required DOM elements not found');
-}
-
-// Инициализация компонентов
-const preview = new CardPreview(cardPreviewTemplate, events, appData);
-const cardComponent = new Card(cardTemplate, events);
-const basketComponent = new Basket(basketTemplate, events);
-const contactsForm = new ContactsForm(createFromTemplate(contactsTemplate), events);
 
 // Функция для создания элемента из шаблона
 function createFromTemplate(template: HTMLTemplateElement): HTMLElement {
@@ -85,7 +88,7 @@ events.on('items:changed', renderCatalog);
 events.on('card:select', (item: IProduct) => {
     modal.render(preview.render(item));
     modal.open();
-});
+})
 
 events.on('basket:add', (product: IProduct) => {
     appData.addToBasket(product);
@@ -98,117 +101,62 @@ events.on('basket:remove', (data: { id: string }) => {
 });
 
 events.on('basket:open', () => {
-    // Функция для рендеринга корзины
-    const renderBasket = () => {
-        const basketElement = basketComponent.render({
-            items: appData.basket,
-            total: appData.getOrderTotal()
-        });
-        modal.render(basketElement);
-    };
-
-    // Первоначальный рендер
-    renderBasket();
-
-    // Создаем обработчик
-    const basketChangeHandler = () => {
-        renderBasket();
-    };
-
-    // Подписываемся на изменения
-    events.on('basket:changed', basketChangeHandler);
-
-    // Отписываемся при закрытии
-    const originalClose = modal.close.bind(modal);
-    modal.close = () => {
-        events.off('basket:changed', basketChangeHandler);
-        originalClose();
-    };
-
+    basket.items = appData.basket;
+    basket.total = appData.getOrderTotal();
+    modal.render(basket.getContainer());
     modal.open();
 });
 
-events.on('basket:changed', updateBasketUI);
+events.on('basket:changed', (items: IProduct[]) => {
+    basket.items = items;
+    basket.total = appData.getOrderTotal();
+    updateBasketUI(items);
+});
 
 events.on('order:open', () => {
     const orderElement = createFromTemplate(orderTemplate);
     const orderForm = new OrderForm(orderElement, events);
-
-    // Обработка отправки формы заказа
-    orderForm.onSubmit = (data) => {
-        events.emit('order:submit', data);
-    };
-
-    modal.render(orderForm.container);
-    modal.open(orderForm.container);
+    modal.render(orderElement);
+    modal.open();
 });
 
 events.on('order:submit', (data: { payment: string, address: string }) => {
     appData.order.payment = data.payment;
     appData.order.address = data.address;
-    events.emit('contacts:open');
+    const contactsElement = createFromTemplate(contactsTemplate);
+    const contactsForm = new ContactsForm(contactsElement, events);
+    modal.render(contactsElement);
+    modal.open();
 });
 
 events.on('contacts:open', () => {
     const contactsElement = createFromTemplate(contactsTemplate);
     const contactsForm = new ContactsForm(contactsElement, events);
-    modal.render(contactsForm.container);
-    modal.open(contactsForm.container);
+    modal.render(contactsForm.getContainer());
+    modal.open();
 });
 
 events.on('contacts:submit', (data: { email: string; phone: string }) => {
-    // Валидация данных
-    if (!data.email || !data.phone || !appData.order.address || !appData.order.payment) {
-        contactsForm.setError('Заполните все поля');
-        return;
-    }
-
-    if (!data.email.includes('@')) {
-        contactsForm.setError('Введите корректный email');
-        return;
-    }
-
-    if (appData.basket.length === 0) {
-        contactsForm.setError('Корзина пуста');
-        return;
-    }
-
-    // Подготовка данных
     appData.order.email = data.email;
     appData.order.phone = data.phone;
-    appData.order.total = appData.getOrderTotal();
-    appData.order.items = appData.basket.map(item => item.id);
 
-    api.orderProducts(appData.order)
-        .then(() => {
-            // Создаем элемент из шаблона success
-            const successElement = successTemplate.content.firstElementChild?.cloneNode(true) as HTMLElement;
+    api.orderProducts({
+        ...appData.order,
+        items: appData.basket.map(item => item.id),
+        total: appData.getOrderTotal()
+    }).then(() => {
+        const successElement = createFromTemplate(successTemplate);
+        const description = successElement.querySelector('.order-success__description');
+        if (description) {
+            description.textContent = `Списано ${appData.order.total} синапсов`;
+        }
 
-            // Устанавливаем сумму
-            const description = successElement.querySelector('.order-success__description');
-            if (description) {
-                description.textContent = `Списано ${appData.order.total} синапсов`;
-            }
-
-            // Настраиваем кнопку закрытия
-            const closeButton = successElement.querySelector('.order-success__close');
-            if (closeButton) {
-                closeButton.addEventListener('click', () => {
-                    modal.close();
-                    appData.clearBasket();
-                    updateBasketUI([]); // Обновляем счетчик корзины
-                });
-            }
-
-            // Закрываем текущее модальное окно и открываем success
-            modal.close();
-            modal.render(successElement);
-            modal.open();
-        })
-        .catch((error) => {
-            console.error('Ошибка:', error);
-            contactsForm.setError('Ошибка оформления заказа');
-        });
+        modal.render(successElement);
+        modal.open();
+    }).catch((error) => {
+        console.error('Ошибка оформления заказа:', error);
+        contactsForm.setError('Ошибка оформления заказа');
+    });
 });
 
 function updateBasketUI(items: IProduct[] = []) {

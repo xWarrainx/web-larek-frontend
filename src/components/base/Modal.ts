@@ -1,23 +1,22 @@
+import { Component } from "./Component";
 import { EventEmitter } from "./events";
 
-export class Modal {
-    private container: HTMLElement;
-    private content: HTMLElement;
-    private closeButton: HTMLElement;
-    private closeOnEsc: (e: KeyboardEvent) => void;
+export class Modal extends Component<void> {
+    private contentContainer: HTMLElement;
 
-    constructor(containerId: string, protected events: EventEmitter) {
-        this.container = document.getElementById(containerId)!;
-        this.content = this.container.querySelector('.modal__content')!;
-        this.closeButton = this.container.querySelector('.modal__close')!;
+    constructor(container: HTMLElement, events: EventEmitter) {
+        super(container, events);
+        this.contentContainer = this.container.querySelector('.modal__content')!;
 
-        this.closeOnEsc = (e: KeyboardEvent) => {
-            if (e.key === 'Escape') {
-                this.close();
-            }
-        };
+        this.setHandler('.modal__close', 'click', this.close.bind(this));
+        this.setHandler('.modal', 'click', (e: Event) => {
+            if (e.target === this.container) this.close();
+        });
 
-        this.closeButton.addEventListener('click', this.close.bind(this));
+        document.addEventListener('keydown', (e: KeyboardEvent) => {
+            if (e.key === 'Escape') this.close();
+        });
+
         this.container.addEventListener('click', (e) => {
             if (e.target === this.container) {
                 this.close();
@@ -25,22 +24,17 @@ export class Modal {
         });
     }
 
-    render(content: HTMLElement) {
-        const contentContainer = this.container.querySelector('.modal__content');
-        if (contentContainer) {
-            contentContainer.innerHTML = '';
-            contentContainer.appendChild(content);
-        }
+    render(content: HTMLElement): void {
+        this.contentContainer.innerHTML = '';
+        this.contentContainer.appendChild(content);
     }
 
-    open(content?: HTMLElement) {
+    open(): void {
         this.container.classList.add('modal_active');
-        document.addEventListener('keydown', this.closeOnEsc);
     }
 
-    close() {
+    close(): void {
         this.container.classList.remove('modal_active');
-        document.removeEventListener('keydown', this.closeOnEsc);
         this.events.emit('modal:close');
     }
 

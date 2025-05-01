@@ -6,7 +6,7 @@ export class Page extends Component<{ counter: number }> {
     private counterElement: HTMLElement;
 
     constructor(container: HTMLElement, protected events: EventEmitter, private appData: AppData) {
-        super(container);
+        super(container, events);
 
         this.counterElement = this.container.querySelector('.header__basket-counter');
         events.on('basket:changed', () => {

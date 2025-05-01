@@ -1,48 +1,40 @@
+import { Component } from "./Component";
 import { EventEmitter } from "./events";
 import { IProduct } from "../../types";
+import { BasketItem } from "./BasketItem";
 
-export class Basket {
-    protected _element: HTMLElement;
+export class Basket extends Component<{ items: IProduct[], total: number }> {
     protected _list: HTMLElement;
-    protected _price: HTMLElement;
-    protected _button: HTMLElement;
+    protected _total: HTMLElement;
+    protected _button: HTMLButtonElement;
+    private _itemTemplate: HTMLTemplateElement;
 
-    constructor(
-        protected template: HTMLTemplateElement,
-        protected events: EventEmitter
-    ) {
-        this._element = template.content.firstElementChild?.cloneNode(true) as HTMLElement;
-        if (!this._element) throw new Error('Basket template error');
+    constructor(container: HTMLElement, events: EventEmitter) {
+        super(container, events);
 
-        this._list = this._element.querySelector('.basket__list')!;
-        this._price = this._element.querySelector('.basket__price')!;
-        this._button = this._element.querySelector('.basket__button')!;
+        this._list = this.container.querySelector('.basket__list')!;
+        this._total = this.container.querySelector('.basket__price')!;
+        this._button = this.container.querySelector('.basket__button')!;
+        this._itemTemplate = document.getElementById('card-basket') as HTMLTemplateElement;
 
-        this._button.addEventListener('click', () => {
-            events.emit('order:open');
+        this.setHandler('.basket__button', 'click', () => {
+            this.events.emit('order:open');
         });
     }
 
-    render(data: { items: IProduct[], total: number }): HTMLElement {
+    set items(items: IProduct[]) {
         this._list.innerHTML = '';
+        items.forEach((item, index) => {
+            const itemElement = this._itemTemplate.content.firstElementChild?.cloneNode(true) as HTMLElement;
+            if (!itemElement) return;
 
-        data.items.forEach((item, index) => {
-            const itemTemplate = document.getElementById('card-basket') as HTMLTemplateElement;
-            const itemElement = itemTemplate.content.firstElementChild?.cloneNode(true) as HTMLElement;
-
-            itemElement.querySelector('.card__title')!.textContent = item.title;
-            itemElement.querySelector('.card__price')!.textContent = `${item.price} синапсов`;
             itemElement.querySelector('.basket__item-index')!.textContent = (index + 1).toString();
-
-            itemElement.querySelector('.basket__item-delete')?.addEventListener('click', (e) => {
-                e.stopPropagation();
-                this.events.emit('basket:remove', { id: item.id });
-            });
-
-            this._list.appendChild(itemElement);
+            const basketItem = new BasketItem(itemElement, this.events);
+            this._list.appendChild(basketItem.render(item));
         });
+    }
 
-        this._price.textContent = `${data.total} синапсов`;
-        return this._element;
+    set total(value: number) {
+        this.setText('.basket__price', `${value} синапсов`);
     }
 }

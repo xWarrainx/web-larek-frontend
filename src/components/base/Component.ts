@@ -1,33 +1,26 @@
+import { EventEmitter } from "./events";
 
 export abstract class Component<T> {
     protected container: HTMLElement;
+    protected events: EventEmitter;
 
-    constructor(container: HTMLElement) {
+    constructor(container: HTMLElement, events: EventEmitter) {
         this.container = container;
+        this.events = events;
     }
 
-    getContainer(): HTMLElement {
-        return this.container;
-    }
-    
-    // Общие методы для всех компонентов
+    // Общие методы
     setText(selector: string, value: string): void {
         const element = this.container.querySelector(selector);
         if (element) element.textContent = value;
     }
 
-    protected setClass(selector: string, className: string): void {
-        const element = this.container.querySelector(selector);
-        if (element) {
-            if (className) {
-                element.classList.add(className);
-            } else {
-                element.className = '';
-            }
-        }
+    setDisabled(selector: string, state: boolean): void {
+        const element = this.container.querySelector(selector) as HTMLButtonElement;
+        if (element) element.disabled = state;
     }
 
-    protected setImage(selector: string, src: string, alt?: string): void {
+    setImage(selector: string, src: string, alt?: string): void {
         const element = this.container.querySelector(selector) as HTMLImageElement;
         if (element) {
             element.src = src;
@@ -35,8 +28,26 @@ export abstract class Component<T> {
         }
     }
 
-    setDisabled(selector: string, state: boolean): void {
-        const element = this.container.querySelector(selector) as HTMLButtonElement;
-        if (element) element.disabled = state;
+    setClass(selector: string, className: string): void {
+        const element = this.container.querySelector(selector);
+        if (element) {
+            element.className = className;
+        }
+    }
+
+    public getContainer(): HTMLElement {
+        return this.container;
+    }
+    
+    protected setHandler(
+        selector: string,
+        event: string,
+        handler: (event: Event) => void
+    ) {
+        const element = this.container.querySelector(selector);
+        if (element) {
+            element.removeEventListener(event, handler);
+            element.addEventListener(event, handler);
+        }
     }
 }
