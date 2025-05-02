@@ -38,7 +38,7 @@ export abstract class Component<T> {
     public getContainer(): HTMLElement {
         return this.container;
     }
-    
+
     protected setHandler(
         selector: string,
         event: string,

@@ -2,7 +2,7 @@ import './scss/styles.scss';
 import { EventEmitter } from "./components/base/events";
 import { LarekApi } from "./components/LarekApi";
 import { AppData } from "./components/base/AppData";
-import { IProduct } from "./types";
+import { IProduct, IOrder } from "./types";
 import { ApiListResponse } from "./components/base/api";
 import { API_URL, CDN_URL } from "./utils/constants";
 import { Card, CardPreview } from "./components/base/Card";
@@ -37,13 +37,13 @@ const modal = new Modal(modalContainer, events);
 const basket = new Basket(createFromTemplate(basketTemplate), events);
 const cardComponent = new Card(cardTemplate, events);
 const preview = new CardPreview(cardPreviewTemplate, events, appData);
-const orderForm = new OrderForm(orderFormElement, events);
-const contactsForm = new ContactsForm(contactsFormElement, events);
 
 // Получаем DOM элементы
 const galleryElement = document.querySelector('.gallery');
 const basketCounter = document.querySelector('.header__basket-counter');
 const basketButton = document.querySelector('.header__basket');
+let orderForm: OrderForm;
+let contactsForm: ContactsForm;
 
 // Функция для создания элемента из шаблона
 function createFromTemplate(template: HTMLTemplateElement): HTMLElement {
@@ -102,61 +102,91 @@ events.on('basket:remove', (data: { id: string }) => {
 
 events.on('basket:open', () => {
     basket.items = appData.basket;
-    basket.total = appData.getOrderTotal();
+    basket.total = appData.getTotal();
     modal.render(basket.getContainer());
     modal.open();
 });
 
 events.on('basket:changed', (items: IProduct[]) => {
     basket.items = items;
-    basket.total = appData.getOrderTotal();
+    basket.total = appData.getTotal();
     updateBasketUI(items);
 });
 
 events.on('order:open', () => {
     const orderElement = createFromTemplate(orderTemplate);
-    const orderForm = new OrderForm(orderElement, events);
+    orderForm = new OrderForm(orderElement, events);
     modal.render(orderElement);
     modal.open();
 });
 
 events.on('order:submit', (data: { payment: string, address: string }) => {
-    appData.order.payment = data.payment;
-    appData.order.address = data.address;
-    const contactsElement = createFromTemplate(contactsTemplate);
-    const contactsForm = new ContactsForm(contactsElement, events);
-    modal.render(contactsElement);
-    modal.open();
+    appData.setOrderField('payment', data.payment);
+    appData.setOrderField('address', data.address);
+
+    const errors = appData.validateOrder();
+    if (appData.isOrderValid()) {
+        const contactsElement = createFromTemplate(contactsTemplate);
+        const contactsForm = new ContactsForm(contactsElement, events);
+        modal.render(contactsElement);
+    } else {
+        const orderForm = new OrderForm(createFromTemplate(orderTemplate), events);
+        orderForm.setErrors(errors);
+        modal.render(orderForm.getContainer());
+    }
+});
+
+events.on('order:fieldChange', (data: { field: 'payment' | 'address' | 'email' | 'phone', value: string }) => {
+    appData.setOrderField(data.field, data.value);
+});
+
+events.on('order:paymentChange', (data: { value: string }) => {
+    appData.setOrderField('payment', data.value);
+});
+
+events.on('order:addressChange', (data: { value: string }) => {
+    appData.setOrderField('address', data.value);
 });
 
 events.on('contacts:open', () => {
     const contactsElement = createFromTemplate(contactsTemplate);
-    const contactsForm = new ContactsForm(contactsElement, events);
-    modal.render(contactsForm.getContainer());
+    contactsForm = new ContactsForm(contactsElement, events);
+    modal.render(contactsElement);
     modal.open();
 });
 
-events.on('contacts:submit', (data: { email: string; phone: string }) => {
-    appData.order.email = data.email;
-    appData.order.phone = data.phone;
+events.on('contacts:submit', () => {
+    const errors = appData.validateContacts();
+    if (appData.isContactsValid()) {
+        api.orderProducts(appData.getOrderData()).then(() => {
+            const successElement = createFromTemplate(successTemplate);
+            const description = successElement.querySelector('.order-success__description');
+            if (description) {
+                description.textContent = `Списано ${appData.getTotal()} синапсов`;
+            }
 
-    api.orderProducts({
-        ...appData.order,
-        items: appData.basket.map(item => item.id),
-        total: appData.getOrderTotal()
-    }).then(() => {
-        const successElement = createFromTemplate(successTemplate);
-        const description = successElement.querySelector('.order-success__description');
-        if (description) {
-            description.textContent = `Списано ${appData.order.total} синапсов`;
-        }
+            const closeButton = successElement.querySelector('.order-success__close');
+            closeButton?.addEventListener('click', () => {
+                location.reload();
+            });
 
-        modal.render(successElement);
-        modal.open();
-    }).catch((error) => {
-        console.error('Ошибка оформления заказа:', error);
-        contactsForm.setError('Ошибка оформления заказа');
-    });
+            modal.render(successElement);
+            modal.open();
+            appData.clearBasket();
+        }).catch((error) => {
+            contactsForm.setError('Ошибка оформления заказа');
+        });
+    } else {
+        contactsForm.setErrors(errors);
+    }
+});
+
+events.on('contacts:emailChange', (data: { value: string }) => {
+    appData.setOrderField('email', data.value);
+});
+
+events.on('contacts:phoneChange', (data: { value: string }) => {
+    appData.setOrderField('phone', data.value);
 });
 
 function updateBasketUI(items: IProduct[] = []) {

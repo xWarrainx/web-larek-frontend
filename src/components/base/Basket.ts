@@ -22,6 +22,10 @@ export class Basket extends Component<{ items: IProduct[], total: number }> {
         });
     }
 
+    // Устанавливает список товаров в корзине.
+    // Очищает текущий список и добавляет новые элементы на основе переданного массива товаров.
+    // Каждому товару присваивается порядковый номер.
+    // @param items - Массив товаров для отображения в корзине
     set items(items: IProduct[]) {
         this._list.innerHTML = '';
         items.forEach((item, index) => {

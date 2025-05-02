@@ -3,6 +3,8 @@ import { EventEmitter } from "./events";
 import { IProduct } from "../../types";
 import { AppData } from "./AppData";
 
+// Классы CSS для разных категорий товаров
+// Используются для стилизации карточек
 const categoryClasses: Record<string, string> = {
     'софт-скил': 'card__category_soft',
     'хард-скил': 'card__category_hard',
@@ -21,6 +23,9 @@ export class Card extends Component<IProduct> {
         this.template = template;
     }
 
+    // Рендерит карточку товара
+    // @param item - данные товара
+    // @returns HTMLElement - готовый DOM-элемент карточки
     render(item: IProduct): HTMLElement {
         const element = this.template.content.querySelector('.card')?.cloneNode(true) as HTMLElement;
 
@@ -122,6 +127,10 @@ export class CardPreview extends Card {
         return element;
     }
 
+    // Переключает состояние товара (в корзине/не в корзине)
+    // Генерирует события:
+    // - 'basket:add' при добавлении
+    // - 'basket:remove' при удалении
     private toggleBasket(): void {
         if (!this._currentItem || !this._button) return;
         if (this.appData.isInBasket(this._currentItem)) {

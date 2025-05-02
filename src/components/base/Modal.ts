@@ -24,17 +24,26 @@ export class Modal extends Component<void> {
         });
     }
 
+    // Вставляет контент в модальное окно
+    // @param content - DOM-элемент для отображения
     render(content: HTMLElement): void {
         this.contentContainer.innerHTML = '';
         this.contentContainer.appendChild(content);
     }
 
+    // Открывает модальное окно
+    // Добавляет класс 'modal_active' и блокирует прокрутку страницы
     open(): void {
-        this.container.classList.add('modal_active');
+       this.container.classList.add('modal_active');
+       document.body.style.overflow = 'hidden';
     }
 
+    // Закрывает модальное окно
+    // Удаляет класс 'modal_active' и восстанавливает прокрутку
+    // Генерирует событие 'modal:close'
     close(): void {
         this.container.classList.remove('modal_active');
+        document.body.style.overflow = '';
         this.events.emit('modal:close');
     }
 
