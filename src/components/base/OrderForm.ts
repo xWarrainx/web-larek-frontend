@@ -1,6 +1,7 @@
 import { Form } from "./Form";
 import { EventEmitter } from "./events";
 import { FormErrors } from "../../types";
+import { ensureElement } from "../../utils/utils";
 
 export class OrderForm extends Form<void> {
     protected paymentButtons: HTMLButtonElement[];
@@ -10,107 +11,55 @@ export class OrderForm extends Form<void> {
     constructor(container: HTMLElement, events: EventEmitter) {
         super(container, events);
 
-        // Ищем кнопки по конкретным name
         this.paymentButtons = [
-            container.querySelector('[name="card"]'),
-            container.querySelector('[name="cash"]')
-        ].filter(Boolean) as HTMLButtonElement[];
+            ensureElement<HTMLButtonElement>('[name="card"]', container),
+            ensureElement<HTMLButtonElement>('[name="cash"]', container)
+        ];
 
-        this.addressInput = container.querySelector('[name="address"]') as HTMLInputElement;
-        this.submitButton = container.querySelector('.order__button') as HTMLButtonElement;
+        this.addressInput = ensureElement<HTMLInputElement>('[name="address"]', container);
+        this.submitButton = ensureElement<HTMLButtonElement>('.order__button', container);
 
-        // Проверка найденных элементов
-        if (this.paymentButtons.length !== 2) {
-            console.error('Не найдены кнопки оплаты:', {
-                found: this.paymentButtons.length,
-                html: container.innerHTML
-            });
-        }
-
-        // Инициализация
-        this.resetForm();
         this.setupEventListeners();
+        this.updateSubmitButton();
     }
 
     private setupEventListeners(): void {
-        // Обработчики кнопок оплаты
         this.paymentButtons.forEach(button => {
             button.addEventListener('click', () => {
-                this.selectPayment(button);
+                this.selectPaymentMethod(button);
+                this.events.emit('order:paymentChange', { value: button.name });
+                this.updateSubmitButton();
             });
         });
 
-        // Обработчик поля адреса
         this.addressInput.addEventListener('input', () => {
-            this.checkFormValidity();
+            this.events.emit('order:addressChange', { value: this.addressInput.value });
+            this.updateSubmitButton();
         });
 
-        this.container.addEventListener('submit', (e: Event) => {
+        this.container.addEventListener('submit', (e) => {
             e.preventDefault();
-            if (!this.submitButton.disabled) {
-                this.events.emit('order:submit', {
-                    payment: this.getSelectedPayment(),
-                    address: this.addressInput.value
-                });
-            }
+            this.events.emit('order:submit');
         });
-
     }
 
-    private getSelectedPayment(): string {
-        const selectedButton = this.paymentButtons.find(
-            btn => btn.classList.contains('button_alt-active')
-        );
-        return selectedButton?.name || '';
-    }
-
-    private selectPayment(selectedButton: HTMLButtonElement): void {
-        // Сбрасываем все кнопки
+    private selectPaymentMethod(selectedButton: HTMLButtonElement): void {
         this.paymentButtons.forEach(button => {
-            button.classList.remove('button_alt-active');
-            button.classList.add('button_alt');
+            button.classList.toggle('button_alt-active', button === selectedButton);
+            button.classList.toggle('button_alt', button !== selectedButton);
         });
-
-        // Устанавливаем выбранную кнопку
-        selectedButton.classList.add('button_alt-active');
-        selectedButton.classList.remove('button_alt');
-
-        this.events.emit('order:paymentChange', {
-            value: selectedButton.name // Используем name вместо value
-        });
-
-        this.checkFormValidity();
     }
 
-    private checkFormValidity(): void {
-        const isPaymentSelected = this.paymentButtons.some(
-            btn => btn.classList.contains('button_alt-active')
+    setErrors(errors: FormErrors): void {
+        this.setError('');
+    }
+
+    private updateSubmitButton(): void {
+        const isPaymentSelected = this.paymentButtons.some(btn =>
+            btn.classList.contains('button_alt-active')
         );
-        const isAddressFilled = this.addressInput.value.trim().length > 0;
+        const isAddressFilled = this.addressInput.value.trim() !== '';
 
-        if (isPaymentSelected && isAddressFilled) {
-            this.submitButton.classList.add('button-active');
-            this.submitButton.disabled = false;
-        } else {
-            this.submitButton.classList.remove('button-active');
-            this.submitButton.disabled = true;
-        }
-    }
-
-    public resetForm(): void {
-        this.paymentButtons.forEach(button => {
-            button.classList.remove('button_alt-active');
-            button.classList.add('button_alt');
-        });
-        this.addressInput.value = '';
-        this.submitButton.classList.remove('button-active');
-        this.submitButton.disabled = true;
-    }
-
-    public setErrors(errors: FormErrors): void {
-        let errorMessage = '';
-        if (errors.payment) errorMessage += `${errors.payment}\n`;
-        if (errors.address) errorMessage += errors.address;
-        this.setError(errorMessage.trim());
+        this.submitButton.disabled = !(isPaymentSelected && isAddressFilled);
     }
 }

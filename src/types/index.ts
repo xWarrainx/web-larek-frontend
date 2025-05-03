@@ -19,6 +19,13 @@ export interface IOrderResult {
     id: string
 }
 
+export interface IPageElements {
+    counter: HTMLElement;
+    gallery: HTMLElement;
+    basketButton: HTMLButtonElement;
+    errorContainer?: HTMLElement;
+}
+
 export type PaymentMethod = 'online' | 'offline';
 
 export interface IOrderForm {
@@ -26,6 +33,10 @@ export interface IOrderForm {
     address: string;
     email: string;
     phone: string;
+}
+
+export interface IBasketItem extends IProduct {
+    index: number;
 }
 
 export type FormErrors = Partial<Record<keyof IOrderForm, string>>;

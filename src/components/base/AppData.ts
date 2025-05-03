@@ -19,19 +19,27 @@ export class AppData {
 
     private subscribeToEvents(): void {
         this.events.on('order:paymentChange', (event: { value: string }) => {
-            this._order.payment = event.value;
+            this.setOrderField('payment', event.value);
+            const errors = this.validateOrder();
+            this.events.emit('order:validated', {
+                errors,
+                isValid: this.isOrderValid()
+            });
         });
 
         this.events.on('order:addressChange', (event: { value: string }) => {
-            this._order.address = event.value;
+            this.setOrderField('address', event.value);
+            const errors = this.validateOrder();
+            this.events.emit('order:validated', {
+                errors,
+                isValid: this.isOrderValid()
+            });
         });
 
-        this.events.on('contacts:emailChange', (event: { value: string }) => {
-            this._order.email = event.value;
-        });
-
-        this.events.on('contacts:phoneChange', (event: { value: string }) => {
-            this._order.phone = event.value;
+        this.events.on('order:validated', (data: { errors: FormErrors; isValid: boolean }) => {
+            if (!data.isValid) {
+                this.events.emit('order:errors', data.errors);
+            }
         });
     }
 
@@ -56,18 +64,6 @@ export class AppData {
         return this._basket.reduce((total, item) => total + (item.price || 0), 0);
     }
 
-    getPurchaseIds(): string[] {
-        return this._basket.map(item => item.id);
-    }
-
-    getOrderData(): IOrder {
-        return {
-            ...this._order,
-            items: this.getPurchaseIds(),
-            total: this.getTotal()
-        };
-    }
-
     get basketCount(): number {
         return this._basket.length;
     }
@@ -76,20 +72,27 @@ export class AppData {
         return this._order;
     }
 
-    // Добавляет товар в корзину, если его там еще нет
-    // @param product - товар для добавления
     addToBasket(product: IProduct) {
         if (!this.isInBasket(product)) {
             this._basket.push(product);
             this.events.emit('basket:changed', this._basket);
+            this.events.emit('basket:update', {
+                item: product,
+                inBasket: true
+            });
         }
     }
 
-    // Удаляет товар из корзины по ID
-    // @param id - ID товара для удаления
     removeFromBasket(id: string) {
+        const item = this._basket.find(item => item.id === id);
         this._basket = this._basket.filter(item => item.id !== id);
         this.events.emit('basket:changed', this._basket);
+        if (item) {
+            this.events.emit('basket:update', {
+                item,
+                inBasket: false
+            });
+        }
     }
 
     clearBasket() {
@@ -97,53 +100,72 @@ export class AppData {
         this.events.emit('basket:changed', this._basket);
     }
 
-    setOrderField(field: 'payment' | 'address' | 'email' | 'phone', value: string): void {
+    setOrderField(field: keyof IOrderForm, value: string): void {
         this._order[field] = value;
     }
 
-    // Проверяет валидность данных заказа (адрес и способ оплаты)
-    // @returns Объект с ошибками валидации
     validateOrder(): FormErrors {
         const errors: FormErrors = {};
-        if (!this._order.payment) errors.payment = 'Выберите способ оплаты';
-        if (!this._order.address) errors.address = 'Введите адрес доставки';
+        if (!this._order.payment) errors.payment = '';
+        if (!this._order.address) errors.address = '';
         return errors;
     }
 
-    // Проверяет валидность контактных данных (email и номер телефона)
-    // @returns Объект с ошибками валидации
+    validateEmail(email: string): boolean {
+        return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+    }
+
+    validatePhone(phone: string): boolean {
+        const digits = phone.replace(/\D/g, '');
+        return digits.length >= 10;
+    }
+
     validateContacts(): FormErrors {
         const errors: FormErrors = {};
-        const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+        const { phone, email } = this._order;
 
-        if (!this._order.email) {
-            errors.email = 'Введите email';
-        } else if (!emailRegex.test(this._order.email)) {
-            errors.email = 'Введите корректный email';
-        }
-
-        const phoneDigits = this._order.phone.replace(/\D/g, '');
-        if (!this._order.phone) {
-            errors.phone = 'Введите номер телефона';
-        } else if (phoneDigits.length < 10) {
+        if (!phone || !this.validatePhone(phone)) {
             errors.phone = 'Введите корректный номер (минимум 10 цифр)';
         }
 
+        if (!email || !this.validateEmail(email)) {
+            errors.email = 'Введите корректный email';
+        }
+
         return errors;
     }
+
 
     isOrderValid(): boolean {
         return Object.keys(this.validateOrder()).length === 0;
     }
 
     isContactsValid(): boolean {
-        return Object.keys(this.validateContacts()).length === 0;
+        return this.validateEmail(this._order.email) &&
+            this.validatePhone(this._order.phone);
     }
 
-    getOrderState(): { paymentSelected: boolean; addressFilled: boolean } {
+    getOrderPayload(): IOrder {
+        if (!this.isOrderValid() || !this.isContactsValid()) {
+            throw new Error('Невозможно создать заказ: невалидные данные');
+        }
+
         return {
-            paymentSelected: !!this._order.payment,
-            addressFilled: !!this._order.address.trim()
+            payment: this._order.payment,
+            email: this._order.email,
+            phone: this._order.phone,
+            address: this._order.address,
+            items: this._basket.map(item => item.id),
+            total: this.getTotal()
+        };
+    }
+
+    resetOrderForm(): void {
+        this._order = {
+            payment: '',
+            email: '',
+            phone: '',
+            address: ''
         };
     }
 
@@ -156,5 +178,6 @@ export class AppData {
             address: ''
         };
         this.events.emit('basket:changed', this._basket);
+        this.events.emit('order:reset');
     }
 }
