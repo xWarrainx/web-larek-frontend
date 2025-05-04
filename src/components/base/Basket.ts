@@ -2,27 +2,41 @@ import { Component } from "./Component";
 import { EventEmitter } from "./events";
 import { ensureElement } from "../../utils/utils";
 
-export class Basket extends Component<{ items: HTMLElement[], total: number }> {
-    protected _list?: HTMLElement;
-    protected _total?: HTMLElement;
+interface IBasketData {
+    items: HTMLElement[];
+    total: number;
+}
+
+export class Basket extends Component<IBasketData> {
+    protected _list: HTMLElement;
+    protected _total: HTMLElement;
+    protected _checkoutButton: HTMLButtonElement;
 
     constructor(container: HTMLElement, events: EventEmitter) {
         super(container, events);
-    }
 
-    set items(items: HTMLElement[]) {
-        if (!this._list) this._list = ensureElement<HTMLElement>('.basket__list', this.container);
-        this._list.replaceChildren(...items);
+        // вместо ensureElement использую querySelector, так как иначе
+        // появляется ошибка при загрузке сайте, не получается найти элемент .basket__list,
+        // он создается позже, при добавлении товара в корзину,
+        // при объявлении через querySelector мы обходим данную ошибку.
+        this._list = this.container.querySelector('.basket__list') || document.createElement('div');
+        this._total = this.container.querySelector('.basket__price') || document.createElement('div');
+        this._checkoutButton = this.container.querySelector('.basket__button') || document.createElement('button');
 
-        // Обновляем состояние кнопки
-        const checkoutButton = this.container.querySelector<HTMLButtonElement>('.basket__button');
-        if (checkoutButton) {
-            checkoutButton.disabled = items.length === 0;
+        // Добавляем классы, если элементы были созданы
+        if (!this.container.querySelector('.basket__list')) {
+            this._list.className = 'basket__list';
+            this.container.appendChild(this._list);
         }
     }
 
+
+    set items(items: HTMLElement[]) {
+        this._list.replaceChildren(...items);
+        this._checkoutButton.disabled = items.length === 0;
+    }
+
     set total(value: number) {
-        if (!this._total) this._total = ensureElement<HTMLElement>('.basket__price', this.container);
         this._total.textContent = `${value} синапсов`;
     }
 }

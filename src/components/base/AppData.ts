@@ -14,33 +14,6 @@ export class AppData {
 
     constructor(events: EventEmitter) {
         this.events = events;
-        this.subscribeToEvents();
-    }
-
-    private subscribeToEvents(): void {
-        this.events.on('order:paymentChange', (event: { value: string }) => {
-            this.setOrderField('payment', event.value);
-            const errors = this.validateOrder();
-            this.events.emit('order:validated', {
-                errors,
-                isValid: this.isOrderValid()
-            });
-        });
-
-        this.events.on('order:addressChange', (event: { value: string }) => {
-            this.setOrderField('address', event.value);
-            const errors = this.validateOrder();
-            this.events.emit('order:validated', {
-                errors,
-                isValid: this.isOrderValid()
-            });
-        });
-
-        this.events.on('order:validated', (data: { errors: FormErrors; isValid: boolean }) => {
-            if (!data.isValid) {
-                this.events.emit('order:errors', data.errors);
-            }
-        });
     }
 
     set catalog(items: IProduct[]) {
@@ -76,10 +49,6 @@ export class AppData {
         if (!this.isInBasket(product)) {
             this._basket.push(product);
             this.events.emit('basket:changed', this._basket);
-            this.events.emit('basket:update', {
-                item: product,
-                inBasket: true
-            });
         }
     }
 
@@ -134,7 +103,6 @@ export class AppData {
 
         return errors;
     }
-
 
     isOrderValid(): boolean {
         return Object.keys(this.validateOrder()).length === 0;

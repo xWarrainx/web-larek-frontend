@@ -54,19 +54,11 @@ const successView = new SuccessView(modalContainer, events);
 api.getProductList()
     .then((response: ApiListResponse<IProduct>) => {
         appData.catalog = response.items;
-        events.emit('items:changed', appData.catalog);
     })
     .catch((error) => {
         console.error('Ошибка загрузки:', error);
         page.setError('Ошибка загрузки товаров');
     });
-
-// Обработчики событий
-events.on('modal:close', (data: { type: ModalType }) => {
-    if (data.type === 'success') {
-        appData.resetAll();
-    }
-});
 
 events.on('items:changed', (items: IProduct[]) => {
     const cards = items.map(item => {
@@ -120,7 +112,6 @@ events.on('basket:remove', (data: { id: string }) => {
 events.on('basket:open', () => {
     const basketElement = templates.basket.content.firstElementChild?.cloneNode(true) as HTMLElement;
 
-    // Инициализируем Basket с клонированным элементом
     const basketView = new Basket(basketElement, events);
 
     // Заполняем корзину
@@ -154,6 +145,20 @@ events.on('basket:open', () => {
 });
 
 events.on('basket:changed', () => {
+    // Обновляем список через Basket
+    const items = appData.basket.map((item, index) => {
+        const itemElement = templates.cardBasket.content.firstElementChild?.cloneNode(true) as HTMLElement;
+        if (!itemElement) throw new Error('Basket item template is empty');
+
+        const basketItem = new BasketItem(itemElement, events);
+        return basketItem.render({
+            ...item,
+            index: index + 1
+        });
+    });
+
+    basket.items = items;
+    basket.total = appData.getTotal();
     page.counter = appData.basket.length;
 });
 
@@ -173,12 +178,22 @@ events.on('order:open', () => {
     modal.open('order' as ModalType);
 });
 
-events.on('order:paymentChange', (data: { value: string }) => {
-    appData.setOrderField('payment', data.value);
+events.on('order:paymentChange', (event: { value: string }) => {
+    appData.setOrderField('payment', event.value);
+    const errors = appData.validateOrder();
+    events.emit('order:validated', {
+        errors,
+        isValid: appData.isOrderValid()
+    });
 });
 
-events.on('order:addressChange', (data: { value: string }) => {
-    appData.setOrderField('address', data.value);
+events.on('order:addressChange', (event: { value: string }) => {
+    appData.setOrderField('address', event.value);
+    const errors = appData.validateOrder();
+    events.emit('order:validated', {
+        errors,
+        isValid: appData.isOrderValid()
+    });
 });
 
 events.on('order:submit', () => {
@@ -199,7 +214,7 @@ events.on('order:reset', () => {
     }
 });
 
-// убираем зацикливание при валидации формы контактов
+// Убираем зацикливание при валидации формы контактов
 let contactsFormInstance: ContactsForm | null = null;
 
 events.on('contacts:emailChange', (event: { value: string }) => {
@@ -226,6 +241,9 @@ events.on('contacts:submit', () => {
             .then(() => {
                 successView.render({ total: appData.getTotal() });
                 modal.open('success' as ModalType);
+
+                //Удаляем товары из корзины
+                appData.resetAll();
             })
             .catch(error => {
                 console.error('Order error:', error);
@@ -234,14 +252,9 @@ events.on('contacts:submit', () => {
 });
 
 events.on('success:close', () => {
-    appData.resetAll();
     modal.close();
     page.counter = 0;
-    events.emit('items:changed', appData.catalog);
 });
 
-events.on('modal:close', (data: { type: ModalType }) => {
-    if (data.type === 'success') {
-        appData.resetAll();
-    }
+events.on('modal:close', () => {
 });
