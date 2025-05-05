@@ -45,7 +45,10 @@ const templates = {
 };
 
 // Компоненты
-const basket = new Basket(templates.basket, events);
+const basketTemplate = templates.basket.content.firstElementChild?.cloneNode(true) as HTMLElement;
+if (!basketTemplate) throw new Error('Basket template error');
+const basket = new Basket(basketTemplate, events);
+
 const cardComponent = new Card(templates.card, events);
 const preview = new CardPreview(templates.cardPreview, events, appData);
 const successView = new SuccessView(modalContainer, events);
@@ -53,7 +56,7 @@ const successView = new SuccessView(modalContainer, events);
 // Загрузка данных
 api.getProductList()
     .then((response: ApiListResponse<IProduct>) => {
-        appData.catalog = response.items;
+        appData.setCatalog(response.items);
     })
     .catch((error) => {
         console.error('Ошибка загрузки:', error);
@@ -76,48 +79,23 @@ events.on('card:select', (item: IProduct) => {
 
 events.on('basket:add', (product: IProduct) => {
     appData.addToBasket(product);
+    events.emit('basket:changed');
 });
 
 events.on('basket:remove', (data: { id: string }) => {
     appData.removeFromBasket(data.id);
     events.emit('basket:changed');
-
-    if (modal.isOpened()) {
-        // Получаем текущий элемент модального окна
-        const basketElement = modal.getContainer().querySelector('.basket');
-        if (basketElement) {
-            // Обновляем только список товаров и сумму
-            const basketList = basketElement.querySelector('.basket__list');
-            const totalElement = basketElement.querySelector('.basket__price');
-
-            if (basketList && totalElement) {
-                basketList.innerHTML = '';
-                appData.basket.forEach((item, index) => {
-                    const itemElement = templates.cardBasket.content.firstElementChild?.cloneNode(true) as HTMLElement;
-                    if (itemElement) {
-                        const basketItem = new BasketItem(itemElement, events);
-                        basketItem.render({
-                            ...item,
-                            index: index + 1
-                        });
-                        basketList.appendChild(itemElement);
-                    }
-                });
-                totalElement.textContent = `${appData.getTotal()} синапсов`;
-            }
-        }
-    }
 });
 
 events.on('basket:open', () => {
-    const basketElement = templates.basket.content.firstElementChild?.cloneNode(true) as HTMLElement;
+    modal.render(basket.getContainer());
+    modal.open('basket' as ModalType);
+});
 
-    const basketView = new Basket(basketElement, events);
+events.on('basket:changed', () => {
+    page.counter = appData.basket.length;
 
-    // Заполняем корзину
-    const basketList = basketElement.querySelector('.basket__list');
-    if (!basketList) throw new Error('Basket list not found');
-
+    // Создаём элементы через map
     const items = appData.basket.map((item, index) => {
         const itemElement = templates.cardBasket.content.firstElementChild?.cloneNode(true) as HTMLElement;
         if (!itemElement) throw new Error('Basket item template is empty');
@@ -127,39 +105,9 @@ events.on('basket:open', () => {
         return itemElement;
     });
 
-    basketView.items = items;
-    basketView.total = appData.getTotal();
-
-    // Обработчик кнопки "Оформить"
-    const checkoutButton = basketElement.querySelector('.basket__button');
-    if (checkoutButton) {
-        checkoutButton.addEventListener('click', (e) => {
-            e.preventDefault();
-            modal.close();
-            events.emit('order:open');
-        });
-    }
-
-    modal.render(basketElement);
-    modal.open('basket' as ModalType);
-});
-
-events.on('basket:changed', () => {
-    // Обновляем список через Basket
-    const items = appData.basket.map((item, index) => {
-        const itemElement = templates.cardBasket.content.firstElementChild?.cloneNode(true) as HTMLElement;
-        if (!itemElement) throw new Error('Basket item template is empty');
-
-        const basketItem = new BasketItem(itemElement, events);
-        return basketItem.render({
-            ...item,
-            index: index + 1
-        });
-    });
-
-    basket.items = items;
+    // Обновляем представление
+    basket.list = items;
     basket.total = appData.getTotal();
-    page.counter = appData.basket.length;
 });
 
 events.on('order:open', () => {

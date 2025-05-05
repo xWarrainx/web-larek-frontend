@@ -3,12 +3,24 @@ import { EventEmitter } from "./events";
 import { IBasketItem } from "../../types";
 
 export class BasketItem extends Component<IBasketItem> {
+    static create(item: IBasketItem, events: EventEmitter): HTMLElement {
+        const template = document.getElementById('card-basket') as HTMLTemplateElement;
+        const element = template?.content.firstElementChild?.cloneNode(true) as HTMLElement;
+
+        if (!element) {
+            throw new Error('Basket item template not found');
+        }
+
+        const basketItem = new BasketItem(element, events);
+        basketItem.render(item);
+        return element;
+    }
+
     constructor(container: HTMLElement, events: EventEmitter) {
         super(container, events);
 
         this.setHandler('.basket__item-delete', 'click', (e) => {
             e.preventDefault();
-            e.stopPropagation();
             this.events.emit('basket:remove', { id: this.container.dataset.id });
         });
     }

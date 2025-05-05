@@ -15,23 +15,17 @@ export class Basket extends Component<IBasketData> {
     constructor(container: HTMLElement, events: EventEmitter) {
         super(container, events);
 
-        // вместо ensureElement использую querySelector, так как иначе
-        // появляется ошибка при загрузке сайте, не получается найти элемент .basket__list,
-        // он создается позже, при добавлении товара в корзину,
-        // при объявлении через querySelector мы обходим данную ошибку.
-        this._list = this.container.querySelector('.basket__list') || document.createElement('div');
-        this._total = this.container.querySelector('.basket__price') || document.createElement('div');
-        this._checkoutButton = this.container.querySelector('.basket__button') || document.createElement('button');
+        this._list = ensureElement<HTMLElement>('.basket__list', container);
+        this._total = ensureElement<HTMLElement>('.basket__price', container);
+        this._checkoutButton = ensureElement<HTMLButtonElement>('.basket__button', container);
 
-        // Добавляем классы, если элементы были созданы
-        if (!this.container.querySelector('.basket__list')) {
-            this._list.className = 'basket__list';
-            this.container.appendChild(this._list);
-        }
+        this._checkoutButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            events.emit('order:open');
+        });
     }
 
-
-    set items(items: HTMLElement[]) {
+    set list(items: HTMLElement[]) {
         this._list.replaceChildren(...items);
         this._checkoutButton.disabled = items.length === 0;
     }

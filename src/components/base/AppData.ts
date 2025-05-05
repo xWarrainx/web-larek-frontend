@@ -128,6 +128,11 @@ export class AppData {
         };
     }
 
+    setCatalog(items: IProduct[]) {
+        this._catalog = items;
+        this.events.emit('items:changed', this._catalog);
+    }
+    
     resetOrderForm(): void {
         this._order = {
             payment: '',
