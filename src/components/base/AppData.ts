@@ -53,15 +53,8 @@ export class AppData {
     }
 
     removeFromBasket(id: string) {
-        const item = this._basket.find(item => item.id === id);
         this._basket = this._basket.filter(item => item.id !== id);
         this.events.emit('basket:changed', this._basket);
-        if (item) {
-            this.events.emit('basket:update', {
-                item,
-                inBasket: false
-            });
-        }
     }
 
     clearBasket() {
@@ -132,7 +125,7 @@ export class AppData {
         this._catalog = items;
         this.events.emit('items:changed', this._catalog);
     }
-    
+
     resetOrderForm(): void {
         this._order = {
             payment: '',

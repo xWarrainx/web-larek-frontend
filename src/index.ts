@@ -22,7 +22,6 @@ const page = new Page(document.body, events);
 
 // Получение модального окна
 const modalContainer = document.getElementById('modal-container');
-if (!modalContainer) throw new Error('Modal container not found');
 const modal = new Modal(modalContainer, events);
 
 // Шаблоны
@@ -48,6 +47,14 @@ const templates = {
 const basketTemplate = templates.basket.content.firstElementChild?.cloneNode(true) as HTMLElement;
 if (!basketTemplate) throw new Error('Basket template error');
 const basket = new Basket(basketTemplate, events);
+
+const orderTemplate = templates.order.content.firstElementChild?.cloneNode(true) as HTMLElement;
+if (!orderTemplate) throw new Error('Order template is empty');
+const orderForm = new OrderForm(orderTemplate, events);
+
+const contactsTemplate = templates.contacts.content.firstElementChild?.cloneNode(true) as HTMLElement;
+if (!contactsTemplate) throw new Error('Contacts template is empty');
+const contactsForm = new ContactsForm(contactsTemplate, events);
 
 const cardComponent = new Card(templates.card, events);
 const preview = new CardPreview(templates.cardPreview, events, appData);
@@ -111,18 +118,13 @@ events.on('basket:changed', () => {
 });
 
 events.on('order:open', () => {
-    const orderElement = templates.order.content.firstElementChild?.cloneNode(true) as HTMLElement;
-    if (!orderElement) throw new Error('Order template is empty');
-
-    const orderForm = new OrderForm(orderElement, events);
-
     // Валидация при открытии
     const errors = appData.validateOrder();
     if (Object.keys(errors).length > 0) {
         orderForm.setErrors(errors);
     }
 
-    modal.render(orderElement);
+    modal.render(orderTemplate);
     modal.open('order' as ModalType);
 });
 
@@ -146,41 +148,31 @@ events.on('order:addressChange', (event: { value: string }) => {
 
 events.on('order:submit', () => {
     if (appData.isOrderValid()) {
-        const contactsElement = templates.contacts.content.firstElementChild?.cloneNode(true) as HTMLElement;
-        if (!contactsElement) throw new Error('Contacts template is empty');
-
-        contactsFormInstance = new ContactsForm(contactsElement, events);
-        modal.render(contactsElement);
-        modal.open('contacts' as ModalType);
+    modal.render(contactsTemplate);
+    modal.open('contacts' as ModalType);
     }
 });
 
 events.on('order:reset', () => {
-    const formContainer = modal.getContainer();
-    if (formContainer && contactsFormInstance) {
-        contactsFormInstance.reset();
-    }
+    contactsForm.reset();
 });
-
-// Убираем зацикливание при валидации формы контактов
-let contactsFormInstance: ContactsForm | null = null;
 
 events.on('contacts:emailChange', (event: { value: string }) => {
     appData.setOrderField('email', event.value);
-    if (!contactsFormInstance) return;
+    if (!contactsForm) return;
 
     const errors = appData.validateContacts();
-    contactsFormInstance.setErrors(errors);
-    contactsFormInstance.setValid(appData.isContactsValid());
+    contactsForm.setErrors(errors);
+    contactsForm.setValid(appData.isContactsValid());
 });
 
 events.on('contacts:phoneChange', (event: { value: string }) => {
     appData.setOrderField('phone', event.value);
-    if (!contactsFormInstance) return;
+    if (!contactsForm) return;
 
     const errors = appData.validateContacts();
-    contactsFormInstance.setErrors(errors);
-    contactsFormInstance.setValid(appData.isContactsValid());
+    contactsForm.setErrors(errors);
+    contactsForm.setValid(appData.isContactsValid());
 });
 
 events.on('contacts:submit', () => {
